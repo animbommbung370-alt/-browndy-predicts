@@ -2,8 +2,8 @@ exports.handler = async function () {
 const token = process.env.FOOTBALL_DATA_TOKEN;
 
 const headers = {
-“Content-Type”: “application/json; charset=utf-8”,
-“Cache-Control”: “no-store”
+"Content-Type": "application/json; charset=utf-8"
+"Cache-Control": "no-store"
 };
 
 if (!token) {
@@ -11,7 +11,7 @@ return {
 statusCode: 500,
 headers,
 body: JSON.stringify({
-error: “Football data token is missing.”
+error: "Football data token is missing."
 })
 };
 }
