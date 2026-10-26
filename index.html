@@ -2,122 +2,576 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#071a14">
 <title>Browndy Predicts</title>
+
 <style>
-:root{--bg:#071a14;--panel:#10281f;--panel2:#163529;--line:#2b4b3d;--text:#f4fbf6;--muted:#a9c0b4;--accent:#8df0ad;--warn:#ffda8a}
-*{box-sizing:border-box}body{margin:0;background:linear-gradient(180deg,#071a14,#0b2119 45%,#071a14);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
-header{padding:26px 18px 20px;max-width:980px;margin:auto} .brand{font-size:12px;letter-spacing:2px;color:var(--accent);font-weight:800}h1{margin:8px 0;font-size:clamp(27px,6vw,42px);line-height:1.1}p{line-height:1.5}.sub{color:var(--muted);margin:8px 0 0}
-main{max-width:980px;margin:auto;padding:0 14px 40px}.tabs{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 16px}.tab,button{border:1px solid var(--line);background:var(--panel2);color:var(--text);border-radius:12px;padding:12px 15px;font-weight:700;cursor:pointer}.tab.active,button.primary{background:var(--accent);color:#092016;border-color:var(--accent)}button:disabled{opacity:.5;cursor:wait}.layout{display:grid;grid-template-columns:1fr;gap:14px}.card{background:rgba(16,40,31,.96);border:1px solid var(--line);border-radius:18px;padding:17px;min-width:0}.card h2{font-size:18px;margin:0 0 12px}.row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}.muted{color:var(--muted)}.status{font-size:12px;border:1px solid var(--line);padding:5px 9px;border-radius:999px;color:var(--accent)}.matches{display:grid;gap:10px}.match{border:1px solid var(--line);border-radius:13px;padding:13px;background:#0a2017}.match.selected{outline:2px solid var(--accent)}.teams{display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:center;font-weight:750}.teams span:last-child{text-align:right}.score{font-size:18px;color:var(--accent);white-space:nowrap}.meta{font-size:12px;color:var(--muted);margin-top:9px}.match button{margin-top:10px;padding:9px 12px;font-size:13px}.formgrid{display:grid;grid-template-columns:1fr;gap:10px}label{display:grid;gap:6px;color:var(--muted);font-size:13px}input,select{width:100%;min-width:0;padding:12px;border-radius:10px;border:1px solid var(--line);background:#071a14;color:var(--text);font:inherit}button{font-size:14px}.results{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin-top:13px}.metric{padding:12px;background:#0a2017;border:1px solid var(--line);border-radius:12px}.metric small{display:block;color:var(--muted);font-size:11px}.metric strong{display:block;font-size:19px;margin-top:4px}.notice{font-size:12px;color:var(--muted);border-left:3px solid var(--warn);padding-left:10px}.error{color:#ffc2b8}.success{color:var(--accent)}.hidden{display:none!important}footer{max-width:980px;margin:auto;padding:0 16px 26px;color:var(--muted);font-size:12px}
-@media(min-width:760px){.layout{grid-template-columns:1.05fr .95fr}.formgrid{grid-template-columns:1fr 1fr}.card{padding:20px}}
+:root{
+--bg:#071a14;--panel:#10281f;--panel2:#163529;
+--line:#2b4b3d;--text:#f4fbf6;--muted:#a9c0b4;
+--accent:#8df0ad;--warn:#ffda8a;--red:#ffaaa0
+}
+*{box-sizing:border-box}
+body{
+margin:0;background:linear-gradient(180deg,#071a14,#0b2119 45%,#071a14);
+color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif
+}
+header{padding:25px 18px 18px;max-width:980px;margin:auto}
+.brand{font-size:12px;letter-spacing:2px;color:var(--accent);font-weight:800}
+h1{margin:8px 0;font-size:clamp(28px,6vw,42px)}
+p{line-height:1.5}
+.sub,.muted{color:var(--muted)}
+main{max-width:980px;margin:auto;padding:0 14px 40px}
+.tabs{display:flex;gap:7px;flex-wrap:wrap;margin:10px 0 16px}
+button{
+border:1px solid var(--line);background:var(--panel2);color:var(--text);
+border-radius:11px;padding:11px 13px;font-weight:750;cursor:pointer
+}
+button.primary,.tab.active{background:var(--accent);color:#092016;border-color:var(--accent)}
+button:disabled{opacity:.5}
+.layout{display:grid;grid-template-columns:1fr;gap:14px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:17px;padding:17px;min-width:0}
+h2{font-size:18px;margin:0 0 12px}
+.row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.matches{display:grid;gap:10px}
+.match{border:1px solid var(--line);border-radius:13px;padding:13px;background:#0a2017;margin:10px 0}
+.teams{display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:center;font-weight:750}
+.teams span:last-child{text-align:right}
+.score{font-size:17px;color:var(--accent);white-space:nowrap}
+.meta{font-size:12px;color:var(--muted);margin-top:8px}
+.match button{margin-top:10px}
+.formgrid{display:grid;grid-template-columns:1fr;gap:10px}
+label{display:grid;gap:6px;color:var(--muted);font-size:13px}
+input,select{
+width:100%;min-width:0;padding:12px;border-radius:10px;
+border:1px solid var(--line);background:#071a14;color:var(--text);font:inherit
+}
+.results{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin-top:13px}
+.metric{padding:12px;background:#0a2017;border:1px solid var(--line);border-radius:12px;min-width:0}
+.metric small{display:block;color:var(--muted);font-size:11px}
+.metric strong{display:block;font-size:18px;margin-top:5px;overflow-wrap:anywhere}
+.notice{font-size:12px;color:var(--muted);border-left:3px solid var(--warn);padding-left:10px}
+.error{color:var(--red)}
+.success{color:var(--accent)}
+.hidden{display:none!important}
+.badge{display:inline-block;border:1px solid var(--line);border-radius:20px;padding:4px 8px;font-size:11px}
+footer{max-width:980px;margin:auto;padding:0 16px 25px;color:var(--muted);font-size:12px}
+@media(min-width:760px){
+.layout{grid-template-columns:1.05fr .95fr}
+.formgrid{grid-template-columns:1fr 1fr}
+.card{padding:20px}
+}
 </style>
 </head>
+
 <body>
 <header>
-  <div class="brand">MATCH INTELLIGENCE • RESULTS TRACKING</div>
-  <h1>Browndy Predicts</h1>
-  <p class="sub">Fixtures, match-specific score estimates and result tracking in one place.</p>
+<div class="brand">MATCH INTELLIGENCE • RESULTS TRACKING</div>
+<h1>Browndy Predicts</h1>
+<p class="sub">Football analysis, probability estimates and manual results tracking.</p>
 </header>
+
 <main>
-  <div class="tabs">
-    <button class="tab active" data-tab="matches">Matches</button>
-    <button class="tab" data-tab="analysis">Analysis</button>
-    <button class="tab" data-tab="history">My history</button>
-    <button class="tab" data-tab="premium">Premium</button>
-  </div>
-  <section id="matches" class="tabpage">
-    <div class="layout">
-      <div class="card">
-        <div class="row"><h2>Available fixtures</h2><button id="reload" class="primary">Load matches</button></div>
-        <p id="feedStatus" class="muted">Tap “Load matches” to fetch fixtures from the connected football data service.</p>
-        <div id="matchesList" class="matches"></div>
-      </div>
-      <div class="card">
-        <h2>Analyse a match</h2>
-        <div class="formgrid">
-          <label>Home team<input id="home" placeholder="e.g. Arsenal" maxlength="70"></label>
-          <label>Away team<input id="away" placeholder="e.g. Chelsea" maxlength="70"></label>
-          <label>Competition<input id="competition" placeholder="League match" maxlength="80"></label>
-          <label>Match date<input id="kickoff" type="datetime-local"></label>
-        </div>
-        <p><button id="analyse" class="primary">Generate estimate</button></p>
-        <p id="analysisStatus" class="muted">Choose a fixture or enter two teams.</p>
-        <div id="prediction" class="results hidden"></div>
-        <p class="notice">These are statistical estimates, not guaranteed outcomes. The current version uses a transparent baseline, not five connected AI models.</p>
-      </div>
-    </div>
-  </section>
-  <section id="analysis" class="tabpage hidden">
-    <div class="card"><h2>How estimates work</h2><p>Each match gets an estimate based on the team names and available match details, so different fixtures can produce different scorelines. This starter version is not a trained forecasting model and does not promise betting profits.</p><p class="notice">The live fixture connection and result tracker are separate from the future multi-AI prediction service.</p></div>
-  </section>
-  <section id="history" class="tabpage hidden">
-    <div class="card"><div class="row"><h2>Prediction history</h2><button id="clearHistory">Clear history</button></div><p class="muted">Saved on this device only.</p><div id="historyList"></div></div>
-  </section>
-  <section id="premium" class="tabpage hidden">
-    <div class="card"><h2>Premium plan</h2><div class="results"><div class="metric"><small>Planned monthly price</small><strong>5,000 FCFA</strong></div><div class="metric"><small>Payment method</small><strong>MTN MoMo</strong></div></div><p class="notice">Payments, automatic verification and prediction locking are not enabled yet. Do not send money through this screen; no payment is being collected here.</p></div>
-  </section>
+<div class="tabs">
+<button class="tab active" data-tab="matches">Matches</button>
+<button class="tab" data-tab="analysis">Analysis</button>
+<button class="tab" data-tab="history">My history</button>
+<button class="tab" data-tab="premium">Premium</button>
+</div>
+
+<section id="matches" class="tabpage">
+<div class="layout">
+
+<div class="card">
+<div class="row">
+<h2>Available fixtures</h2>
+<button id="reload" class="primary">Load matches</button>
+</div>
+<p id="feedStatus" class="muted">Load fixtures from the connected football data service.</p>
+<div id="matchesList" class="matches"></div>
+</div>
+
+<div class="card">
+<h2>Analyse a match</h2>
+<div class="formgrid">
+<label>Home team
+<input id="home" placeholder="e.g. Arsenal" maxlength="70">
+</label>
+<label>Away team
+<input id="away" placeholder="e.g. Chelsea" maxlength="70">
+</label>
+<label>Competition
+<input id="competition" placeholder="League match" maxlength="80">
+</label>
+<label>Match date
+<input id="kickoff" type="datetime-local">
+</label>
+</div>
+
+<p><button id="analyse" class="primary">Generate prediction</button></p>
+<p id="analysisStatus" class="muted">Select a fixture or enter two teams.</p>
+<div id="prediction" class="results hidden"></div>
+<p id="dataNote" class="notice">Prediction confidence depends on the quality and availability of the data.</p>
+</div>
+
+</div>
+</section>
+
+<section id="analysis" class="tabpage hidden">
+<div class="card">
+<h2>Prediction method</h2>
+<p>When completed match results are available, the engine estimates scoring rates from the available data and calculates probabilities for different scorelines.</p>
+<p>When historical data is missing, it uses a neutral baseline. A percentage is an estimate, not a guarantee.</p>
+<p class="notice">The current connection provides fixtures and scores. It does not automatically provide all the historical team statistics needed for a fully data-driven model. Five AI systems are not connected yet.</p>
+</div>
+</section>
+
+<section id="history" class="tabpage hidden">
+<div class="card">
+<div class="row">
+<h2>Prediction history</h2>
+<button id="clearHistory">Clear history</button>
+</div>
+<div class="results" id="historyStats"></div>
+<p class="muted">Predictions and results are saved on this device.</p>
+<div id="historyList"></div>
+</div>
+</section>
+
+<section id="premium" class="tabpage hidden">
+<div class="card">
+<h2>Premium plan</h2>
+<div class="results">
+<div class="metric"><small>Planned monthly price</small><strong>5,000 FCFA</strong></div>
+<div class="metric"><small>Payment method</small><strong>MTN MoMo</strong></div>
+</div>
+<p class="notice">Payments, automatic verification and prediction locking are not enabled. Do not send money through this screen.</p>
+</div>
+</section>
 </main>
-<footer>Browndy Predicts • Use responsibly • Estimates are not guarantees.</footer>
+
+<footer>Browndy Predicts • Predictions are estimates, not guarantees.</footer>
+
 <script>
-const $ = id => document.getElementById(id);
-let matches = [], selected = null;
-const API = "/.netlify/functions/football";
-function safe(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
-function dateText(s){if(!s)return "Date not provided";const d=new Date(s);return isNaN(d)?"Date not provided":d.toLocaleString([], {dateStyle:"medium",timeStyle:"short"});}
+const $=id=>document.getElementById(id);
+const API="/.netlify/functions/football";
+const STORAGE="browndy_predictions_v2";
+let matches=[];
+let selectedMatch=null;
+
+function safe(s){
+return String(s??"").replace(/[&<>"']/g,c=>({
+"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+}[c]));
+}
+
+function getHistory(){
+try{
+const a=JSON.parse(localStorage.getItem(STORAGE)||"[]");
+return Array.isArray(a)?a:[];
+}catch{return [];}
+}
+
+function saveHistory(arr){
+localStorage.setItem(STORAGE,JSON.stringify(arr.slice(0,100)));
+renderHistory();
+}
+
+function dateText(s){
+if(!s)return "Date not provided";
+const d=new Date(s);
+return isNaN(d)?"Date not provided":d.toLocaleString([],{
+dateStyle:"medium",timeStyle:"short"
+});
+}
+
+function matchStatus(m){
+return String(m.status||"SCHEDULED").replaceAll("_"," ");
+}
+
 function matchCard(m,i){
- const h=m.homeTeam?.name||"Home team", a=m.awayTeam?.name||"Away team";
- const st=m.status||"SCHEDULED", sc=m.score?.fullTime;
- const score=(sc && sc.home!==null && sc.away!==null)?`${sc.home} – ${sc.away}`:"vs";
- return `<article class="match ${selected===i?"selected":""}"><div class="teams"><span>${safe(h)}</span><span class="score">${safe(score)}</span><span>${safe(a)}</span></div><div class="meta">${safe(m.competition?.name||"Football")} · ${safe(dateText(m.utcDate))} · ${safe(st.replaceAll("_"," "))}</div><button data-select="${i}">Use this match</button></article>`;
+const h=m.homeTeam?.name||"Home team";
+const a=m.awayTeam?.name||"Away team";
+const sc=m.score?.fullTime;
+const score=sc&&sc.home!=null&&sc.away!=null
+?`${sc.home} – ${sc.away}`:"vs";
+
+return `<article class="match">
+<div class="teams">
+<span>${safe(h)}</span>
+<span class="score">${safe(score)}</span>
+<span>${safe(a)}</span>
+</div>
+<div class="meta">${safe(m.competition?.name||"Football")} · ${safe(dateText(m.utcDate))} · ${safe(matchStatus(m))}</div>
+<button data-select="${i}">Analyse this match</button>
+</article>`;
 }
+
 async function loadMatches(){
- const b=$("reload"); b.disabled=true; $("feedStatus").textContent="Loading real fixtures…"; $("matchesList").innerHTML="";
- try{
-  const r=await fetch(API,{headers:{Accept:"application/json"},cache:"no-store"});
-  let data; try{data=await r.json()}catch{throw new Error("The fixture service returned an unreadable response.")};
-  if(!r.ok)throw new Error(data.message||data.error||`Fixture service error (${r.status}).`);
-  matches=Array.isArray(data.matches)?data.matches:[];
-  if(!matches.length){$("feedStatus").textContent="The service connected, but no fixtures were returned. Try again later.";return;}
-  $("feedStatus").innerHTML=`<span class="success">${matches.length} fixtures loaded.</span> Choose one to analyse.`;
-  $("matchesList").innerHTML=matches.slice(0,30).map(matchCard).join("");
- }catch(e){$("feedStatus").innerHTML=`<span class="error">${safe(e.message)} Please check the published Netlify function and token settings.</span>`}
- finally{b.disabled=false;}
+const b=$("reload");
+b.disabled=true;
+$("feedStatus").textContent="Loading fixtures…";
+$("matchesList").innerHTML="";
+
+try{
+const r=await fetch(API,{
+headers:{Accept:"application/json"},
+cache:"no-store"
+});
+let data;
+try{data=await r.json();}
+catch{throw new Error("Unreadable response from the football service.");}
+
+if(!r.ok)throw new Error(data.message||data.error||`Service error ${r.status}`);
+
+matches=Array.isArray(data.matches)?data.matches:[];
+
+if(!matches.length){
+$("feedStatus").textContent="No fixtures returned. Try again later.";
+return;
 }
+
+$("feedStatus").innerHTML=`<span class="success">${matches.length} fixtures loaded.</span>`;
+$("matchesList").innerHTML=matches.slice(0,30).map(matchCard).join("");
+
+}catch(e){
+$("feedStatus").innerHTML=`<span class="error">${safe(e.message)}</span>`;
+}finally{
+b.disabled=false;
+}
+}
+
 $("matchesList").addEventListener("click",e=>{
- const b=e.target.closest("[data-select]"); if(!b)return;
- const i=Number(b.dataset.select),m=matches[i]; if(!m)return; selected=i;
- $("home").value=m.homeTeam?.name||"";$("away").value=m.awayTeam?.name||"";$("competition").value=m.competition?.name||"League match";
- $("kickoff").value=m.utcDate?new Date(m.utcDate).toISOString().slice(0,16):"";
- $("matchesList").innerHTML=matches.slice(0,30).map(matchCard).join("");
- $("analysisStatus").textContent="Fixture selected. Generate an estimate when ready.";
+const b=e.target.closest("[data-select]");
+if(!b)return;
+const m=matches[Number(b.dataset.select)];
+if(!m)return;
+
+selectedMatch=m;
+$("home").value=m.homeTeam?.name||"";
+$("away").value=m.awayTeam?.name||"";
+$("competition").value=m.competition?.name||"League match";
+$("kickoff").value=m.utcDate?new Date(m.utcDate).toISOString().slice(0,16):"";
+$("analysisStatus").textContent="Fixture selected. Generate a prediction when ready.";
 });
-function hash(s){let x=2166136261;for(const c of s)x=Math.imul(x^c.charCodeAt(0),16777619);return x>>>0;}
-function estimate(home,away,comp){
- const seed=hash((home+"|"+away+"|"+comp).toLowerCase());
- const hg=(seed%100)/100, ag=((seed>>>8)%100)/100;
- let h=Math.min(4,Math.floor(hg*3.4)), a=Math.min(4,Math.floor(ag*3.1));
- if(h===a && seed%3===0)a=Math.min(4,a+1);
- const outcomes=h>a?["1X","Home win"]:h<a?["X2","Away win"]:["1X2","Draw"];
- return {score:`${h}–${a}`,result:outcomes[1],double:outcomes[0],over:(h+a)>2.5?"Over 2.5":"Under 2.5",btts:h>0&&a>0?"Yes":"No"};
+
+function poisson(lambda,k){
+if(lambda<=0)return k===0?1:0;
+let p=Math.exp(-lambda);
+for(let i=1;i<=k;i++)p*=lambda/i;
+return p;
 }
-function history(){try{return JSON.parse(localStorage.getItem("fph_history")||"[]")}catch{return []}}
-function saveHistory(item){const arr=history();arr.unshift(item);localStorage.setItem("fph_history",JSON.stringify(arr.slice(0,50)));renderHistory();}
+
+function completedMatches(){
+return matches.filter(m=>
+["FINISHED","AWARDED"].includes(m.status)&&
+m.score?.fullTime?.home!=null&&
+m.score?.fullTime?.away!=null
+);
+}
+
+function teamRates(team,homeSide){
+const done=completedMatches();
+const found=done.filter(m=>
+(m.homeTeam?.name||"").toLowerCase()===team.toLowerCase()||
+(m.awayTeam?.name||"").toLowerCase()===team.toLowerCase()
+).slice(-10);
+
+if(found.length<3)return null;
+
+let scored=0,conceded=0,venueCount=0;
+let venueScored=0,venueConceded=0;
+
+for(const m of found){
+const isHome=(m.homeTeam?.name||"").toLowerCase()===team.toLowerCase();
+const gf=isHome?m.score.fullTime.home:m.score.fullTime.away;
+const ga=isHome?m.score.fullTime.away:m.score.fullTime.home;
+
+scored+=gf;
+conceded+=ga;
+
+if(isHome===homeSide){
+venueScored+=gf;
+venueConceded+=ga;
+venueCount++;
+}
+}
+
+return{
+scored:scored/found.length,
+conceded:conceded/found.length,
+venueScored:venueCount?venueScored/venueCount:scored/found.length,
+venueConceded:venueCount?venueConceded/venueCount:conceded/found.length,
+count:found.length
+};
+}
+
+function buildModel(home,away){
+const hr=teamRates(home,true);
+const ar=teamRates(away,false);
+
+if(!hr||!ar){
+return{
+homeRate:1.35,
+awayRate:1.10,
+realData:false,
+count:0
+};
+}
+
+const homeRate=Math.max(.2,Math.min(3.5,(hr.venueScored+ar.venueConceded)/2));
+const awayRate=Math.max(.2,Math.min(3.5,(ar.venueScored+hr.venueConceded)/2));
+
+return{
+homeRate,awayRate,realData:true,
+count:Math.min(hr.count,ar.count)
+};
+}
+
+function makePrediction(home,away){
+const model=buildModel(home,away);
+const maxGoals=8;
+let scores=[];
+let homeWin=0,draw=0,awayWin=0;
+let over25=0,btts=0,total=0;
+
+for(let h=0;h<=maxGoals;h++){
+for(let a=0;a<=maxGoals;a++){
+const p=poisson(model.homeRate,h)*poisson(model.awayRate,a);
+scores.push({h,a,p});
+total+=p;
+
+if(h>a)homeWin+=p;
+else if(h===a)draw+=p;
+else awayWin+=p;
+
+if(h+a>2.5)over25+=p;
+if(h>0&&a>0)btts+=p;
+}
+}
+
+scores.forEach(s=>s.p/=total);
+homeWin/=total;draw/=total;awayWin/=total;
+over25/=total;btts/=total;
+
+const best=scores.reduce((a,b)=>b.p>a.p?b:a);
+const homePct=homeWin*100;
+const drawPct=draw*100;
+const awayPct=awayWin*100;
+
+const outcome=homePct>=drawPct&&homePct>=awayPct
+?"Home win":drawPct>=awayPct?"Draw":"Away win";
+
+let double="12";
+if(homeWin+draw>=awayWin+draw&&homeWin+draw>=homeWin+awayWin)double="1X";
+else if(awayWin+draw>=homeWin+awayWin)double="X2";
+
+return{
+home,away,
+score:`${best.h}-${best.a}`,
+scoreProbability:best.p*100,
+homeRate:model.homeRate,
+awayRate:model.awayRate,
+homeWin,draw,awayWin,
+outcome,double,
+over25,under25:1-over25,
+btts,notBtts:1-btts,
+realData:model.realData,
+sample:model.count
+};
+}
+
+function pct(n){return `${Math.round(n*100)}%`;}
+function pct2(n){return `${n.toFixed(1)}%`;}
+
+function showPrediction(p){
+$("prediction").innerHTML=`
+<div class="metric"><small>Most likely correct score</small><strong>${safe(p.score)}</strong><small>Estimated probability: ${pct2(p.scoreProbability)}%</small></div>
+<div class="metric"><small>1X2 prediction</small><strong>${safe(p.outcome)}</strong><small>Home ${pct(p.homeWin)} · Draw ${pct(p.draw)} · Away ${pct(p.awayWin)}</small></div>
+<div class="metric"><small>Double chance</small><strong>${safe(p.double)}</strong><small>Combined probability: ${pct((p.double==="1X"?p.homeWin+p.draw:p.double==="X2"?p.awayWin+p.draw:p.homeWin+p.awayWin))}</small></div>
+<div class="metric"><small>Over 2.5 goals</small><strong>${pct(p.over25)}</strong></div>
+<div class="metric"><small>Under 2.5 goals</small><strong>${pct(p.under25)}</strong></div>
+<div class="metric"><small>Both teams to score — YES</small><strong>${pct(p.btts)}</strong></div>
+<div class="metric"><small>Both teams to score — NO</small><strong>${pct(p.notBtts)}</strong></div>`;
+
+$("prediction").classList.remove("hidden");
+
+if(p.realData){
+$("analysisStatus").innerHTML=`<span class="success">Estimate generated using available completed-match results.</span>`;
+$("dataNote").textContent=`The model used available recent results for both teams (minimum 3 matches each). Estimated scoring rates: ${p.homeRate.toFixed(2)} home goals and ${p.awayRate.toFixed(2)} away goals. This is not a guarantee.`;
+}else{
+$("analysisStatus").textContent="Estimate generated with a neutral baseline.";
+$("dataNote").textContent="Historical results for both teams were not available in the loaded fixtures. Probabilities use a neutral baseline and may not reflect current team form.";
+}
+}
+
 $("analyse").addEventListener("click",()=>{
- const home=$("home").value.trim(),away=$("away").value.trim(),comp=$("competition").value.trim()||"League match";
- if(!home||!away){$("analysisStatus").textContent="Enter both team names or select a fixture.";return;}
- if(home.toLowerCase()===away.toLowerCase()){$("analysisStatus").textContent="Please enter two different teams.";return;}
- const p=estimate(home,away,comp);
- $("prediction").innerHTML=`<div class="metric"><small>Estimated correct score</small><strong>${p.score}</strong></div><div class="metric"><small>1X2 estimate</small><strong>${p.result}</strong></div><div class="metric"><small>Double chance</small><strong>${p.double}</strong></div><div class="metric"><small>Goals market</small><strong>${p.over}</strong></div><div class="metric"><small>Both teams score</small><strong>${p.btts}</strong></div>`;
- $("prediction").classList.remove("hidden");
- $("analysisStatus").textContent="Estimate created. This baseline is illustrative, not a validated AI forecast.";
- saveHistory({home,away,comp,score:p.score,result:p.result,at:new Date().toISOString(),kickoff:$("kickoff").value||""});
+const home=$("home").value.trim();
+const away=$("away").value.trim();
+const comp=$("competition").value.trim()||"League match";
+
+if(!home||!away){
+$("analysisStatus").textContent="Enter both team names or select a fixture.";
+return;
+}
+if(home.toLowerCase()===away.toLowerCase()){
+$("analysisStatus").textContent="Choose two different teams.";
+return;
+}
+
+const p=makePrediction(home,away);
+showPrediction(p);
+
+const item={
+id:crypto.randomUUID?crypto.randomUUID():String(Date.now())+Math.random(),
+home,away,comp,
+kickoff:$("kickoff").value||"",
+createdAt:new Date().toISOString(),
+prediction:{
+score:p.score,
+outcome:p.outcome,
+double:p.double,
+over25:p.over25>=.5?"Over 2.5":"Under 2.5",
+btts:p.btts>=.5?"Yes":"No",
+probabilities:{
+homeWin:p.homeWin,draw:p.draw,awayWin:p.awayWin,
+over25:p.over25,under25:p.under25,btts:p.btts,notBtts:p.notBtts,
+score:p.scoreProbability/100
+},
+realData:p.realData
+},
+actual:null,
+grades:null
+};
+
+const arr=getHistory();
+arr.unshift(item);
+saveHistory(arr);
 });
-function renderHistory(){const arr=history();$("historyList").innerHTML=arr.length?arr.map(x=>`<article class="match"><strong>${safe(x.home)} vs ${safe(x.away)}</strong><div class="meta">${safe(x.comp)} · ${safe(dateText(x.at))}</div><p>Estimate: <strong>${safe(x.score)}</strong> · ${safe(x.result)}</p><div class="formgrid"><label>Actual home goals<input type="number" min="0" max="30" data-h="${safe(x.at)}" class="actual-home"></label><label>Actual away goals<input type="number" min="0" max="30" data-a="${safe(x.at)}" class="actual-away"></label></div><button data-check="${safe(x.at)}">Check result</button><div class="meta" id="feedback-${safe(x.at)}"></div></article>`).join(""):"<p class='muted'>No saved predictions yet. Generate an estimate to start your history.</p>";}
-$("historyList").addEventListener("click",e=>{const b=e.target.closest("[data-check]");if(!b)return;const k=b.dataset.check,arr=history(),item=arr.find(x=>x.at===k),h=document.querySelector(`[data-h="${CSS.escape(k)}"]`),a=document.querySelector(`[data-a="${CSS.escape(k)}"]`),out=$("feedback-"+k);if(!item||h.value===""||a.value===""){out.textContent="Enter both final scores first.";return;}const actual=`${Number(h.value)}–${Number(a.value)}`;out.textContent=`Actual score: ${actual}. ${actual===item.score?"Exact score matched.":"Not an exact-score match."}`;});
-$("clearHistory").addEventListener("click",()=>{localStorage.removeItem("fph_history");renderHistory();});
+
+function grade(item,h,a){
+const p=item.prediction;
+const actualOutcome=h>a?"Home win":h<a?"Away win":"Draw";
+const actualOver=h+a>2.5?"Over 2.5":"Under 2.5";
+const actualBTTS=h>0&&a>0?"Yes":"No";
+const predictedScore=p.score.split("-").map(Number);
+
+return{
+score:predictedScore[0]===h&&predictedScore[1]===a,
+outcome:p.outcome===actualOutcome,
+double:p.double==="1X"?(actualOutcome==="Home win"||actualOutcome==="Draw"):
+p.double==="X2"?(actualOutcome==="Away win"||actualOutcome==="Draw"):
+actualOutcome!=="Draw",
+goals:p.over25===actualOver,
+btts:p.btts===actualBTTS
+};
+}
+
+function gradeLabel(v){return v?"WON":"LOST";}
+
+function renderHistory(){
+const arr=getHistory();
+const checked=arr.filter(x=>x.grades);
+let won=0,lost=0;
+
+checked.forEach(x=>{
+Object.values(x.grades).forEach(v=>v?won++:lost++);
+});
+
+const accuracy=won+lost?Math.round(won/(won+lost)*100):0;
+
+$("historyStats").innerHTML=`
+<div class="metric"><small>Saved predictions</small><strong>${arr.length}</strong></div>
+<div class="metric"><small>Checked predictions</small><strong>${checked.length}</strong></div>
+<div class="metric"><small>Graded markets won</small><strong>${won}</strong></div>
+<div class="metric"><small>Market accuracy</small><strong>${checked.length?accuracy+"%":"—"}</strong></div>`;
+
+if(!arr.length){
+$("historyList").innerHTML="<p class='muted'>No saved predictions yet.</p>";
+return;
+}
+
+$("historyList").innerHTML=arr.map(x=>{
+const actual=x.actual;
+const g=x.grades;
+return `<article class="match">
+<strong>${safe(x.home)} vs ${safe(x.away)}</strong>
+<div class="meta">${safe(x.comp)} · Created ${safe(dateText(x.createdAt))}</div>
+<p>Predicted score: <strong>${safe(x.prediction.score)}</strong></p>
+<p>1X2: ${safe(x.prediction.outcome)} · Double chance: ${safe(x.prediction.double)}</p>
+<p>Goals: ${safe(x.prediction.over25)} · BTTS: ${safe(x.prediction.btts)}</p>
+<p>Data basis: <span class="badge">${x.prediction.realData?"Available completed results":"Baseline estimate"}</span></p>
+${actual?`<p>Actual score: <strong>${actual.home}–${actual.away}</strong></p>`:""}
+${g?`<p>Market results:
+<br>Correct score: <span class="badge">${g.score?"WON":"LOST"}</span>
+<br>1X2: <span class="badge">${g.outcome?"WON":"LOST"}</span>
+<br>Double chance: <span class="badge">${g.double?"WON":"LOST"}</span>
+<br>Over/Under 2.5: <span class="badge">${g.goals?"WON":"LOST"}</span>
+<br>BTTS: <span class="badge">${g.btts?"WON":"LOST"}</span></p>`:""}
+${!g?`<div class="formgrid">
+<label>Actual home goals<input type="number" min="0" max="30" step="1" data-home="${safe(x.id)}"></label>
+<label>Actual away goals<input type="number" min="0" max="30" step="1" data-away="${safe(x.id)}"></label>
+</div>
+<button data-check="${safe(x.id)}">Check result</button>`:""}
+<button data-delete="${safe(x.id)}">Delete prediction</button>
+</article>`;
+}).join("");
+}
+
+$("historyList").addEventListener("click",e=>{
+const check=e.target.closest("[data-check]");
+const del=e.target.closest("[data-delete]");
+const arr=getHistory();
+
+if(del){
+if(!confirm("Delete this prediction from history?"))return;
+saveHistory(arr.filter(x=>x.id!==del.dataset.delete));
+return;
+}
+
+if(!check)return;
+
+const id=check.dataset.check;
+const hInput=document.querySelector(`[data-home="${id}"]`);
+const aInput=document.querySelector(`[data-away="${id}"]`);
+
+if(!hInput||!aInput||hInput.value===""||aInput.value===""){
+alert("Enter both final scores first.");
+return;
+}
+
+const h=Number(hInput.value),a=Number(aInput.value);
+if(!Number.isInteger(h)||!Number.isInteger(a)||h<0||a<0||h>30||a>30){
+alert("Enter valid scores between 0 and 30.");
+return;
+}
+
+const item=arr.find(x=>x.id===id);
+if(!item)return;
+
+item.actual={home:h,away:a,checkedAt:new Date().toISOString()};
+item.grades=grade(item,h,a);
+saveHistory(arr);
+});
+
+$("clearHistory").addEventListener("click",()=>{
+if(!confirm("Delete all saved predictions on this device?"))return;
+localStorage.removeItem(STORAGE);
+renderHistory();
+});
+
 $("reload").addEventListener("click",loadMatches);
-document.querySelectorAll("[data-tab]").forEach(b=>b.addEventListener("click",()=>{document.querySelectorAll("[data-tab]").forEach(t=>t.classList.toggle("active",t===b));document.querySelectorAll(".tabpage").forEach(p=>p.classList.toggle("hidden",p.id!==b.dataset.tab));if(b.dataset.tab==="history")renderHistory();}));
+
+document.querySelectorAll("[data-tab]").forEach(b=>{
+b.addEventListener("click",()=>{
+document.querySelectorAll("[data-tab]").forEach(t=>t.classList.toggle("active",t===b));
+document.querySelectorAll(".tabpage").forEach(p=>p.classList.toggle("hidden",p.id!==b.dataset.tab));
+if(b.dataset.tab==="history")renderHistory();
+});
+});
+
 renderHistory();
 </script>
-</body></html>
+</body>
+</html>
