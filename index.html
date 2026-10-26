@@ -121,9 +121,9 @@ footer{max-width:980px;margin:auto;padding:0 16px 25px;color:var(--muted);font-s
 <section id="analysis" class="tabpage hidden">
 <div class="card">
 <h2>Prediction method</h2>
-<p>When completed match results are available, the engine estimates scoring rates from the available data and calculates probabilities for different scorelines.</p>
-<p>When historical data is missing, it uses a neutral baseline. A percentage is an estimate, not a guarantee.</p>
-<p class="notice">The current connection provides fixtures and scores. It does not automatically provide all the historical team statistics needed for a fully data-driven model. Five AI systems are not connected yet.</p>
+<p>The engine uses available completed-match results to estimate team scoring rates and calculate probabilities for different scorelines.</p>
+<p>If historical data is missing, it uses a neutral baseline. Percentages are estimates, not guarantees.</p>
+<p class="notice">The data service may not provide enough historical matches for every team. Five AI systems are not connected yet.</p>
 </div>
 </section>
 
@@ -157,7 +157,9 @@ footer{max-width:980px;margin:auto;padding:0 16px 25px;color:var(--muted);font-s
 const $=id=>document.getElementById(id);
 const API="/.netlify/functions/football";
 const STORAGE="browndy_predictions_v2";
+
 let matches=[];
+let recentMatches=[];
 let selectedMatch=null;
 
 function safe(s){
@@ -211,7 +213,7 @@ return `<article class="match">
 async function loadMatches(){
 const b=$("reload");
 b.disabled=true;
-$("feedStatus").textContent="Loading fixtures…";
+$("feedStatus").textContent="Loading fixtures and recent results…";
 $("matchesList").innerHTML="";
 
 try{
@@ -219,6 +221,7 @@ const r=await fetch(API,{
 headers:{Accept:"application/json"},
 cache:"no-store"
 });
+
 let data;
 try{data=await r.json();}
 catch{throw new Error("Unreadable response from the football service.");}
@@ -226,13 +229,17 @@ catch{throw new Error("Unreadable response from the football service.");}
 if(!r.ok)throw new Error(data.message||data.error||`Service error ${r.status}`);
 
 matches=Array.isArray(data.matches)?data.matches:[];
+recentMatches=Array.isArray(data.recentMatches)?data.recentMatches:[];
 
 if(!matches.length){
-$("feedStatus").textContent="No fixtures returned. Try again later.";
+$("feedStatus").textContent=
+`No upcoming fixtures returned. ${recentMatches.length} recent completed matches received.`;
 return;
 }
 
-$("feedStatus").innerHTML=`<span class="success">${matches.length} fixtures loaded.</span>`;
+$("feedStatus").innerHTML=
+`<span class="success">${matches.length} fixtures loaded. ${recentMatches.length} recent completed matches received.</span>`;
+
 $("matchesList").innerHTML=matches.slice(0,30).map(matchCard).join("");
 
 }catch(e){
@@ -245,6 +252,7 @@ b.disabled=false;
 $("matchesList").addEventListener("click",e=>{
 const b=e.target.closest("[data-select]");
 if(!b)return;
+
 const m=matches[Number(b.dataset.select)];
 if(!m)return;
 
@@ -252,7 +260,15 @@ selectedMatch=m;
 $("home").value=m.homeTeam?.name||"";
 $("away").value=m.awayTeam?.name||"";
 $("competition").value=m.competition?.name||"League match";
-$("kickoff").value=m.utcDate?new Date(m.utcDate).toISOString().slice(0,16):"";
+
+if(m.utcDate){
+const d=new Date(m.utcDate);
+$("kickoff").value=new Date(d.getTime()-d.getTimezoneOffset()*60000)
+.toISOString().slice(0,16);
+}else{
+$("kickoff").value="";
+}
+
 $("analysisStatus").textContent="Fixture selected. Generate a prediction when ready.";
 });
 
@@ -264,7 +280,7 @@ return p;
 }
 
 function completedMatches(){
-return matches.filter(m=>
+return recentMatches.filter(m=>
 ["FINISHED","AWARDED"].includes(m.status)&&
 m.score?.fullTime?.home!=null&&
 m.score?.fullTime?.away!=null
@@ -272,11 +288,13 @@ m.score?.fullTime?.away!=null
 }
 
 function teamRates(team,homeSide){
-const done=completedMatches();
-const found=done.filter(m=>
-(m.homeTeam?.name||"").toLowerCase()===team.toLowerCase()||
-(m.awayTeam?.name||"").toLowerCase()===team.toLowerCase()
-).slice(-10);
+const name=team.trim().toLowerCase();
+
+const found=completedMatches().filter(m=>
+(m.homeTeam?.name||"").trim().toLowerCase()===name||
+(m.awayTeam?.name||"").trim().toLowerCase()===name
+).sort((a,b)=>new Date(a.utcDate)-new Date(b.utcDate))
+.slice(-10);
 
 if(found.length<3)return null;
 
@@ -284,7 +302,8 @@ let scored=0,conceded=0,venueCount=0;
 let venueScored=0,venueConceded=0;
 
 for(const m of found){
-const isHome=(m.homeTeam?.name||"").toLowerCase()===team.toLowerCase();
+const isHome=(m.homeTeam?.name||"").trim().toLowerCase()===name;
+
 const gf=isHome?m.score.fullTime.home:m.score.fullTime.away;
 const ga=isHome?m.score.fullTime.away:m.score.fullTime.home;
 
@@ -332,6 +351,7 @@ count:Math.min(hr.count,ar.count)
 function makePrediction(home,away){
 const model=buildModel(home,away);
 const maxGoals=8;
+
 let scores=[];
 let homeWin=0,draw=0,awayWin=0;
 let over25=0,btts=0,total=0;
@@ -339,6 +359,7 @@ let over25=0,btts=0,total=0;
 for(let h=0;h<=maxGoals;h++){
 for(let a=0;a<=maxGoals;a++){
 const p=poisson(model.homeRate,h)*poisson(model.awayRate,a);
+
 scores.push({h,a,p});
 total+=p;
 
@@ -352,10 +373,15 @@ if(h>0&&a>0)btts+=p;
 }
 
 scores.forEach(s=>s.p/=total);
-homeWin/=total;draw/=total;awayWin/=total;
-over25/=total;btts/=total;
+
+homeWin/=total;
+draw/=total;
+awayWin/=total;
+over25/=total;
+btts/=total;
 
 const best=scores.reduce((a,b)=>b.p>a.p?b:a);
+
 const homePct=homeWin*100;
 const drawPct=draw*100;
 const awayPct=awayWin*100;
@@ -364,8 +390,11 @@ const outcome=homePct>=drawPct&&homePct>=awayPct
 ?"Home win":drawPct>=awayPct?"Draw":"Away win";
 
 let double="12";
-if(homeWin+draw>=awayWin+draw&&homeWin+draw>=homeWin+awayWin)double="1X";
-else if(awayWin+draw>=homeWin+awayWin)double="X2";
+
+if(homeWin+draw>=awayWin+draw&&homeWin+draw>=homeWin+awayWin)
+double="1X";
+else if(awayWin+draw>=homeWin+awayWin)
+double="X2";
 
 return{
 home,away,
@@ -383,13 +412,13 @@ sample:model.count
 }
 
 function pct(n){return `${Math.round(n*100)}%`;}
-function pct2(n){return `${n.toFixed(1)}%`;}
+function pct2(n){return n.toFixed(1);}
 
 function showPrediction(p){
 $("prediction").innerHTML=`
 <div class="metric"><small>Most likely correct score</small><strong>${safe(p.score)}</strong><small>Estimated probability: ${pct2(p.scoreProbability)}%</small></div>
 <div class="metric"><small>1X2 prediction</small><strong>${safe(p.outcome)}</strong><small>Home ${pct(p.homeWin)} · Draw ${pct(p.draw)} · Away ${pct(p.awayWin)}</small></div>
-<div class="metric"><small>Double chance</small><strong>${safe(p.double)}</strong><small>Combined probability: ${pct((p.double==="1X"?p.homeWin+p.draw:p.double==="X2"?p.awayWin+p.draw:p.homeWin+p.awayWin))}</small></div>
+<div class="metric"><small>Double chance</small><strong>${safe(p.double)}</strong><small>Combined probability: ${pct(p.double==="1X"?p.homeWin+p.draw:p.double==="X2"?p.awayWin+p.draw:p.homeWin+p.awayWin)}</small></div>
 <div class="metric"><small>Over 2.5 goals</small><strong>${pct(p.over25)}</strong></div>
 <div class="metric"><small>Under 2.5 goals</small><strong>${pct(p.under25)}</strong></div>
 <div class="metric"><small>Both teams to score — YES</small><strong>${pct(p.btts)}</strong></div>
@@ -398,11 +427,16 @@ $("prediction").innerHTML=`
 $("prediction").classList.remove("hidden");
 
 if(p.realData){
-$("analysisStatus").innerHTML=`<span class="success">Estimate generated using available completed-match results.</span>`;
-$("dataNote").textContent=`The model used available recent results for both teams (minimum 3 matches each). Estimated scoring rates: ${p.homeRate.toFixed(2)} home goals and ${p.awayRate.toFixed(2)} away goals. This is not a guarantee.`;
+$("analysisStatus").innerHTML=
+`<span class="success">Prediction generated using recent completed-match results.</span>`;
+
+$("dataNote").textContent=
+`The model used up to ${p.sample} recent results per team. Estimated scoring rates: ${p.homeRate.toFixed(2)} home goals and ${p.awayRate.toFixed(2)} away goals. This is not a guarantee.`;
 }else{
 $("analysisStatus").textContent="Estimate generated with a neutral baseline.";
-$("dataNote").textContent="Historical results for both teams were not available in the loaded fixtures. Probabilities use a neutral baseline and may not reflect current team form.";
+
+$("dataNote").textContent=
+"Not enough recent results for both teams were available. This prediction uses a neutral baseline and may not reflect current form.";
 }
 }
 
@@ -415,6 +449,7 @@ if(!home||!away){
 $("analysisStatus").textContent="Enter both team names or select a fixture.";
 return;
 }
+
 if(home.toLowerCase()===away.toLowerCase()){
 $("analysisStatus").textContent="Choose two different teams.";
 return;
@@ -452,6 +487,7 @@ saveHistory(arr);
 
 function grade(item,h,a){
 const p=item.prediction;
+
 const actualOutcome=h>a?"Home win":h<a?"Away win":"Draw";
 const actualOver=h+a>2.5?"Over 2.5":"Under 2.5";
 const actualBTTS=h>0&&a>0?"Yes":"No";
@@ -460,15 +496,15 @@ const predictedScore=p.score.split("-").map(Number);
 return{
 score:predictedScore[0]===h&&predictedScore[1]===a,
 outcome:p.outcome===actualOutcome,
-double:p.double==="1X"?(actualOutcome==="Home win"||actualOutcome==="Draw"):
-p.double==="X2"?(actualOutcome==="Away win"||actualOutcome==="Draw"):
-actualOutcome!=="Draw",
+double:p.double==="1X"
+?(actualOutcome==="Home win"||actualOutcome==="Draw")
+:p.double==="X2"
+?(actualOutcome==="Away win"||actualOutcome==="Draw")
+:actualOutcome!=="Draw",
 goals:p.over25===actualOver,
 btts:p.btts===actualBTTS
 };
 }
-
-function gradeLabel(v){return v?"WON":"LOST";}
 
 function renderHistory(){
 const arr=getHistory();
@@ -495,6 +531,7 @@ return;
 $("historyList").innerHTML=arr.map(x=>{
 const actual=x.actual;
 const g=x.grades;
+
 return `<article class="match">
 <strong>${safe(x.home)} vs ${safe(x.away)}</strong>
 <div class="meta">${safe(x.comp)} · Created ${safe(dateText(x.createdAt))}</div>
@@ -542,6 +579,7 @@ return;
 }
 
 const h=Number(hInput.value),a=Number(aInput.value);
+
 if(!Number.isInteger(h)||!Number.isInteger(a)||h<0||a<0||h>30||a>30){
 alert("Enter valid scores between 0 and 30.");
 return;
@@ -552,6 +590,7 @@ if(!item)return;
 
 item.actual={home:h,away:a,checkedAt:new Date().toISOString()};
 item.grades=grade(item,h,a);
+
 saveHistory(arr);
 });
 
@@ -565,8 +604,12 @@ $("reload").addEventListener("click",loadMatches);
 
 document.querySelectorAll("[data-tab]").forEach(b=>{
 b.addEventListener("click",()=>{
-document.querySelectorAll("[data-tab]").forEach(t=>t.classList.toggle("active",t===b));
-document.querySelectorAll(".tabpage").forEach(p=>p.classList.toggle("hidden",p.id!==b.dataset.tab));
+document.querySelectorAll("[data-tab]").forEach(t=>
+t.classList.toggle("active",t===b)
+);
+document.querySelectorAll(".tabpage").forEach(p=>
+p.classList.toggle("hidden",p.id!==b.dataset.tab)
+);
 if(b.dataset.tab==="history")renderHistory();
 });
 });
