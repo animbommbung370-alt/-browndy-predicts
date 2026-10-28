@@ -37,7 +37,20 @@ input,select{width:100%;min-width:0;padding:12px;border-radius:10px;border:1px s
 const $=id=>document.getElementById(id), API="/.netlify/functions/football", STORAGE="browndy_predictions_v2";
 let matches=[],recentMatches=[];
 function safe(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
-function teamName(t){return typeof t==="string"?t:(t?.name||t?.shortName||"Unknown team")}
+function teamName(t){return typeof t==="string"?t:(t?.name||t?.shortName||"Unknown team")}function normalizeTeamName(name) {
+  return String(name || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]/g, "");
+}
+
+function sameTeamName(a, b) {
+  const x = normalizeTeamName(teamName(a));
+  const y = normalizeTeamName(teamName(b));
+
+  return x === y;
+}
 function scoreParts(m){const s=m.score||{},f=s.fullTime||s;return {home:f.home??m.homeScore,away:f.away??m.awayScore}}
 function matchScore(m){const s=scoreParts(m);return s.home==null||s.away==null?"vs":`${s.home} – ${s.away}`}
 function getHistory(){try{const x=JSON.parse(localStorage.getItem(STORAGE)||"[]");return Array.isArray(x)?x:[]}catch{return []}}
