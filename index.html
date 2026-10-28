@@ -77,9 +77,111 @@ function showPrediction(p){const dp=p.double==="1X"?p.homeWin+p.draw:p.double===
 <div class="metric"><small>Both teams to score — YES</small><strong>${pct(p.btts)}</strong></div><div class="metric"><small>Both teams to score — NO</small><strong>${pct(p.notBtts)}</strong></div>`;$("prediction").classList.remove("hidden");
 $("analysisStatus").innerHTML=p.realData?'<span class="success">Using recent completed-match results.</span>':'<span class="notice">Limited-data estimate: recent results for both teams were not available.</span>';
 $("dataNote").textContent=p.realData?`Used up to ${p.sample} valid recent matches per team. Estimated goals: ${p.homeRate.toFixed(2)} home and ${p.awayRate.toFixed(2)} away. This is a statistical estimate, not a guarantee.`:"This prediction uses a neutral baseline because the service did not provide enough recent results for both teams. Treat it as low confidence."}
-$("analyse").addEventListener("click",()=>{const home=$("home").value.trim(),away=$("away").value.trim(),comp=$("competition").value.trim()||"League match";if(!home||!away){$("analysisStatus").textContent="Enter both team names or select a fixture.";return}if(home.toLowerCase()===away.toLowerCase()){$("analysisStatus").textContent="Choose two different teams.";return}
-const p=makePrediction(home,away);showPrediction(p);const item={id:crypto.randomUUID?crypto.randomUUID():String(Date.now())+Math.random(),home,away,comp,kickoff:$("kickoff").value||"",createdAt:new Date().toISOString(),prediction:{score:p.score,outcome:p.outcome,double:p.double,over25:p.over25>=.5?"Over 2.5":"Under 2.5",btts:p.btts>=.5?"Yes":"No",probabilities:{homeWin:p.homeWin,draw:p.draw,awayWin:p.awayWin,over25:p.over25,under25:p.under25,btts:p.btts,notBtts:p.notBtts,score:p.scoreProbability/100},realData:p.realData},actual:null,grades:null};const h=getHistory();h.unshift(item);saveHistory(h)});
-function grade(item,h,a){const p=item.prediction,o=h>a?"Home win":h<a?"Away win":"Draw",g=h+a>2?"Over 2.5":"Under 2.5",b=h>0&&a>0?"Yes":"No",s=p.score.split("-").map(Number);return {score:s[0]===h&&s[1]===a,outcome:p.outcome===o,double:p.double==="1X"?(o==="Home win"||o==="Draw"):p.double==="X2"?(o==="Away win"||o==="Draw"):o!=="Draw",goals:p.over25===g,btts:p.btts===b}}
+$("analyse").addEventListener("click", async () => {
+  const home = $("home").value.trim();
+  const away = $("away").value.trim();
+  const comp = $("competition").value.trim() || "League match";
+  if (!home || !away) {
+    $("analysisStatus").textContent = "Enter both team names or select a fixture.";
+    return;
+  }
+  if (home.toLowerCase() === away.toLowerCase()) {
+    $("analysisStatus").textContent = "Choose two different teams.";
+    return;
+  }
+  $("analyse").disabled = true;
+  $("analysisStatus").textContent = "Gemini AI is analysing this match...";
+  // Keep the existing statistical prediction as a fallback.
+  const p = makePrediction(home, away);
+  let geminiPrediction = null;
+  try {
+    const response = await fetch("/.netlify/functions/gemini", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        home,
+        away,
+        competition: comp,
+        recentData: "No verified recent match statistics supplied. Do not invent statistics."
+      })
+    });
+    const data = await response.json();
+    if (!response.ok || !data.success || !data.prediction) {
+      throw new Error(data.error || "Gemini analysis was unsuccessful.");
+    }
+    geminiPrediction = data.prediction;
+    // Use Gemini's correct score in the saved prediction.
+    if (geminiPrediction.correctScore) {
+      p.score = geminiPrediction.correctScore;
+    }
+    if (geminiPrediction.result) {
+      p.outcome = geminiPrediction.result;
+    }
+    if (geminiPrediction.doubleChance) {
+      p.double = geminiPrediction.doubleChance;
+    }
+    if (geminiPrediction.overUnder25) {
+      p.over25 = geminiPrediction.overUnder25.toLowerCase().includes("over") ? 1 : 0;
+    }
+    if (geminiPrediction.btts) {
+      p.btts = geminiPrediction.btts.toLowerCase().includes("yes") ? 1 : 0;
+    }
+    $("analysisStatus").textContent =
+      "Gemini AI analysis completed. Please remember that predictions are estimates.";
+  } catch (error) {
+    $("analysisStatus").textContent =
+      "Gemini could not respond. Showing the statistical estimate instead.";
+  } finally {
+    $("analyse").disabled = false;
+  }
+  showPrediction(p);
+  // Display Gemini's explanation when available.
+  if (geminiPrediction) {
+    const note = document.createElement("p");
+    note.textContent =
+      "Google Gemini: " +
+      (geminiPrediction.reasoning || "Analysis completed.") +
+      (geminiPrediction.confidence
+        ? " Confidence: " + geminiPrediction.confidence
+        : "") +
+      " This is an estimate, not a guaranteed result.";
+    note.style.marginTop = "12px";
+    $("prediction").appendChild(note);
+  }
+  const item = {
+    id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random(),
+    home,
+    away,
+    comp,
+    kickoff: $("kickoff").value || "",
+    createdAt: new Date().toISOString(),
+    prediction: {
+      score: p.score,
+      outcome: p.outcome,
+      double: p.double,
+      over25: p.over25 >= 0.5 ? "Over 2.5" : "Under 2.5",
+      btts: p.btts >= 0.5 ? "Yes" : "No",
+      probabilities: {
+        homeWin: p.homeWin,
+        draw: p.draw,
+        awayWin: p.awayWin,
+        over25: p.over25,
+        under25: p.under25,
+        btts: p.btts,
+        notBtts: p.notBtts,
+        score: p.scoreProbability / 100
+      },
+      realData: p.realData,
+      aiProvider: geminiPrediction ? "Google Gemini" : "Statistical fallback",
+      aiReasoning: geminiPrediction ? geminiPrediction.reasoning || "" : ""
+    },
+    actual: null,
+    grades: null
+  };
+  const history = getHistory();
+  history.unshift(item);
+  saveHistory(history);
+});
 function renderHistory(){const h=getHistory(),checked=h.filter(x=>x.grades);let won=0,lost=0;checked.forEach(x=>Object.values(x.grades).forEach(v=>v?won++:lost++));$("historyStats").innerHTML=`<div class="metric"><small>Saved predictions</small><strong>${h.length}</strong></div><div class="metric"><small>Checked predictions</small><strong>${checked.length}</strong></div><div class="metric"><small>Graded markets won</small><strong>${won}</strong></div><div class="metric"><small>Market accuracy</small><strong>${won+lost?Math.round(won/(won+lost)*100)+"%":"—"}</strong></div>`;
 if(!h.length){$("historyList").innerHTML='<p class="muted">No saved predictions yet.</p>';return}
 $("historyList").innerHTML=h.map(x=>{const a=x.actual,g=x.grades;return `<article class="match"><strong>${safe(x.home)} vs ${safe(x.away)}</strong><div class="meta">${safe(x.comp)} · Created ${safe(dateText(x.createdAt))}</div><p>Predicted score: <strong>${safe(x.prediction.score)}</strong></p><p>1X2: ${safe(x.prediction.outcome)} · Double chance: ${safe(x.prediction.double)}</p><p>Goals: ${safe(x.prediction.over25)} · BTTS: ${safe(x.prediction.btts)}</p><p>Data basis: <span class="badge">${x.prediction.realData?"Recent results available":"Baseline estimate"}</span></p>${a?`<p>Actual score: <strong>${a.home}–${a.away}</strong></p>`:""}${g?`<p>Correct score: <span class="badge">${g.score?"WON":"LOST"}</span> · 1X2: <span class="badge">${g.outcome?"WON":"LOST"}</span> · Double chance: <span class="badge">${g.double?"WON":"LOST"}</span> · Goals: <span class="badge">${g.goals?"WON":"LOST"}</span> · BTTS: <span class="badge">${g.btts?"WON":"LOST"}</span></p>`:""}${!g?`<div class="formgrid"><label>Actual home goals<input type="number" min="0" max="30" step="1" data-home="${safe(x.id)}"></label><label>Actual away goals<input type="number" min="0" max="30" step="1" data-away="${safe(x.id)}"></label></div><button data-check="${safe(x.id)}">Check result</button>`:""}<button data-delete="${safe(x.id)}">Delete prediction</button></article>`}).join("")}
