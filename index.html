@@ -102,8 +102,27 @@ $("analyse").addEventListener("click", async () => {
         home,
         away,
         competition: comp,
-        recentData: "No verified recent match statistics supplied. Do not invent statistics."
-      })
+    recentData: JSON.stringify({
+  recentResults: recentMatches
+    .filter(m => ["FINISHED", "AWARDED"].includes(String(m.status || "").toUpperCase()))
+    .slice(0, 30)
+    .map(m => {
+      const s = scoreParts(m);
+      return {
+        home: teamName(m.homeTeam),
+        away: teamName(m.awayTeam),
+        homeGoals: s.home,
+        awayGoals: s.away
+      };
+    }),
+  upcomingMatches: matches
+    .filter(m =>
+      teamName(m.homeTeam).toLowerCase() === home.toLowerCase() &&
+      teamName(m.awayTeam).toLowerCase() === away.toLowerCase()
+    )
+    .slice(0, 1)
+})
+}) 
     });
     const data = await response.json();
     if (!response.ok || !data.success || !data.prediction) {
