@@ -27,7 +27,7 @@ function callGemini(apiKey, prompt) {
     const request = https.request(
       {
         hostname: "generativelanguage.googleapis.com",
-        path: "/v1beta/models/gemini-2.5-flash:generateContent?key=" +
+        path: "/v1beta/models/gemini-3.5-flash-lite:generateContent?key=" +
           encodeURIComponent(apiKey),
         method: "POST",
         headers: {
@@ -106,8 +106,12 @@ exports.handler = async function (event) {
   }
   const home = String(match.home || "").trim();
   const away = String(match.away || "").trim();
-  const competition = String(match.competition || "Unknown competition").trim();
-  const recentData = String(match.recentData || "No recent match statistics supplied.");
+  const competition = String(
+    match.competition || "Unknown competition"
+  ).trim();
+  const recentData = String(
+    match.recentData || "No recent match statistics supplied."
+  );
   if (!home || !away || home.toLowerCase() === away.toLowerCase()) {
     return sendResponse(400, {
       success: false,
