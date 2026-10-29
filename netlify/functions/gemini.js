@@ -4,7 +4,6 @@ function sendResponse(statusCode, data) {
     statusCode,
     headers: {
       "Content-Type": "application/json",
-      "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Headers": "Content-Type",
       "Access-Control-Allow-Methods": "POST, OPTIONS"
     },
@@ -20,14 +19,14 @@ function callGemini(apiKey, prompt) {
         }
       ],
       generationConfig: {
-        responseMimeType: "application/json",
-        temperature: 0.3
+        responseMimeType: "application/json"
       }
     });
     const request = https.request(
       {
         hostname: "generativelanguage.googleapis.com",
-        path: "/v1beta/models/gemini-3.5-flash-lite:generateContent?key=" +
+        path:
+          "/v1beta/models/gemini-3.8-flash:generateContent?key=" +
           encodeURIComponent(apiKey),
         method: "POST",
         headers: {
@@ -37,14 +36,14 @@ function callGemini(apiKey, prompt) {
         timeout: 25000
       },
       (response) => {
-        let data = "";
+        let responseData = "";
         response.on("data", (chunk) => {
-          data += chunk;
+          responseData += chunk;
         });
         response.on("end", () => {
           let result;
           try {
-            result = JSON.parse(data);
+            result = JSON.parse(responseData);
           } catch {
             reject(new Error("Gemini returned an unreadable response."));
             return;
@@ -53,7 +52,7 @@ function callGemini(apiKey, prompt) {
             reject(
               new Error(
                 result.error?.message ||
-                "Gemini API request failed. Check your API key and model access."
+                "Gemini request failed. Check model access and API key."
               )
             );
             return;
@@ -63,7 +62,7 @@ function callGemini(apiKey, prompt) {
               ?.map((part) => part.text || "")
               .join("") || "";
           if (!text) {
-            reject(new Error("Gemini did not return an analysis."));
+            reject(new Error("Gemini returned no analysis."));
             return;
           }
           resolve(text);
@@ -72,7 +71,9 @@ function callGemini(apiKey, prompt) {
     );
     request.on("error", reject);
     request.on("timeout", () => {
-      request.destroy(new Error("Gemini request timed out. Please try again."));
+      request.destroy(
+        new Error("Gemini request timed out. Please try again.")
+      );
     });
     request.write(body);
     request.end();
@@ -112,7 +113,11 @@ exports.handler = async function (event) {
   const recentData = String(
     match.recentData || "No recent match statistics supplied."
   );
-  if (!home || !away || home.toLowerCase() === away.toLowerCase()) {
+  if (
+    !home ||
+    !away ||
+    home.toLowerCase() === away.toLowerCase()
+  ) {
     return sendResponse(400, {
       success: false,
       error: "Please provide two different team names."
@@ -120,7 +125,7 @@ exports.handler = async function (event) {
   }
   const prompt = `
 You are the football analysis engine for Browndy Predicts.
-Analyze this match:
+Analyze this football match:
 Home team: ${home}
 Away team: ${away}
 Competition: ${competition}
@@ -130,20 +135,20 @@ Return ONLY valid JSON with these fields:
 {
   "home": "${home.replace(/"/g, "'")}",
   "away": "${away.replace(/"/g, "'")}",
-  "correctScore": "example: 2-1",
+  "correctScore": "2-1",
   "result": "Home win, Draw, or Away win",
   "doubleChance": "1X, X2, or 12",
   "overUnder25": "Over 2.5 or Under 2.5",
   "btts": "Yes or No",
   "confidence": "Low, Medium, or High",
   "reasoning": "Brief explanation",
-  "limitations": "Important missing information"
+  "limitations": "Missing information"
 }
 Rules:
 - Give a match-specific estimate, not a guaranteed result.
-- Do not claim to have checked live statistics or injuries unless supplied above.
-- Do not invent recent results, league positions, injuries, or team statistics.
-- Make the score consistent with the predicted result.
+- Do not invent recent results, injuries, or statistics.
+- Do not claim to have checked live data unless supplied above.
+- Ensure the predicted score agrees with the predicted result.
 - Use Low confidence when evidence is limited.
 - Be honest about uncertainty.
 `;
@@ -167,7 +172,9 @@ Rules:
     console.error("Gemini function error:", error.message);
     return sendResponse(502, {
       success: false,
-      error: error.message || "Gemini analysis failed. Please try again."
+      error:
+        error.message ||
+        "Gemini analysis failed. Please try again."
     });
   }
 };
