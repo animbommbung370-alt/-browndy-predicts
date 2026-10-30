@@ -1,4 +1,4 @@
-const https = require("https");
+// Browndy Predicts Gemini updateconst https = require("https");
 function sendResponse(statusCode, data) {
   return {
     statusCode,
