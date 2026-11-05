@@ -1,4 +1,5 @@
 <!doctype html>
+
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -94,38 +95,36 @@ footer{max-width:980px;margin:auto;padding:0 16px 25px;color:var(--muted);font-s
           <p class="muted">Loading recent results...</p>
         </div>
       </div>
-      <div class="card">
-        <h2>Analyse a match</h2>
-        <div class="formgrid">
-          <label>Home team
-            <input id="home" placeholder="e.g. Arsenal" maxlength="70">
-          </label>
-          <label>Away team
-            <input id="away" placeholder="e.g. Chelsea" maxlength="70">
-          </label>
-          <label>Competition
-            <input id="competition" placeholder="League match" maxlength="80">
-          </label>
-          <label>Match date
-            <input id="kickoff" type="datetime-local">
-          </label>
-        </div>
-        <p><button id="analyse" class="primary">Generate prediction</button></p>
-        <p id="analysisStatus" class="muted">Select a fixture or enter two teams.</p>
-        <div id="prediction" class="results hidden"></div>
-        <div id="geminiBox" class="ai-box hidden"></div>
-        <p id="dataNote" class="notice">
-          Predictions are estimates, not guarantees.
-        </p>
-      </div>
+  <div class="card">
+    <h2>Analyse a match</h2>
+    <div class="formgrid">
+      <label>Home team
+        <input id="home" placeholder="e.g. Arsenal" maxlength="70">
+      </label>
+      <label>Away team
+        <input id="away" placeholder="e.g. Chelsea" maxlength="70">
+      </label>
+      <label>Competition
+        <input id="competition" placeholder="League match" maxlength="80">
+      </label>
+      <label>Match date
+        <input id="kickoff" type="datetime-local">
+      </label>
     </div>
+    <p><button id="analyse" class="primary">Generate prediction</button></p>
+    <p id="analysisStatus" class="muted">Select a fixture or enter two teams.</p>
+    <div id="prediction" class="results hidden"></div>
+    <div id="geminiBox" class="ai-box hidden"></div>
+    <p id="dataNote" class="notice">Predictions are estimates, not guarantees.</p>
+  </div>
+</div>
   </section>
   <section id="analysis" class="tabpage hidden">
     <div class="card">
       <h2>Prediction method</h2>
       <p>The statistical model estimates scoring rates from recent completed matches, using home and away performance when data is available.</p>
       <p>It calculates correct-score probabilities using a Poisson model. The displayed probabilities are estimates, not promises.</p>
-      <p class="notice">Google Gemini is an additional AI analysis when available. Five independent AI systems are not connected yet.</p>
+      <p class="notice">Google Gemini provides additional AI analysis when its Cloudflare function is connected. Five independent AI systems are not connected yet.</p>
     </div>
   </section>
   <section id="history" class="tabpage hidden">
@@ -160,10 +159,9 @@ footer{max-width:980px;margin:auto;padding:0 16px 25px;color:var(--muted);font-s
 <script>
 "use strict";
 const $ = id => document.getElementById(id);
-// UPDATED: Cloudflare Pages football API
+// Cloudflare Pages API routes
 const API = "/api/football";
-// Gemini connection left unchanged for now
-const GEMINI_API = "/.netlify/functions/gemini";
+const GEMINI_API = "/api/gemini";
 const STORAGE = "browndy_predictions_v2";
 let matches = [];
 let recentMatches = [];
@@ -465,13 +463,14 @@ function makePrediction(home, away) {
       : draw >= awayWin
         ? "Draw"
         : "Away win";
-  let double = "12";
-  if (homeWin + draw >= awayWin + draw &&
-      homeWin + draw >= homeWin + awayWin) {
-    double = "1X";
-  } else if (awayWin + draw >= homeWin + awayWin) {
-    double = "X2";
-  }
+  // Correctly choose the double-chance market with the highest probability.
+  const doubleOptions = [
+    {market:"1X", probability:homeWin + draw},
+    {market:"12", probability:homeWin + awayWin},
+    {market:"X2", probability:draw + awayWin}
+  ];
+  doubleOptions.sort((a, b) => b.probability - a.probability);
+  const double = doubleOptions[0].market;
   return {
     home,
     away,
@@ -703,7 +702,7 @@ $("analyse").addEventListener("click", async () => {
     $("geminiBox").innerHTML = `
       <h3>Google Gemini — Currently unavailable</h3>
       <p>${safe(geminiError || "The AI analysis could not be completed.")}</p>
-      <p class="notice">The statistical prediction is still available. Check the Gemini function and its API key if this keeps happening.</p>`;
+      <p class="notice">The statistical prediction is still available. Check the Gemini Cloudflare function and its API key if this keeps happening.</p>`;
     $("geminiBox").classList.remove("hidden");
     $("analysisStatus").innerHTML =
       '<span class="notice">Statistical prediction completed. Gemini did not respond.</span>';
