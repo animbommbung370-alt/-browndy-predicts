@@ -1,140 +1,58 @@
-// Browndy Predicts Gemini updateconst https = require("https");
-function sendResponse(statusCode, data) {
-  return {
-    statusCode,
-    headers: {
-      "Content-Type": "application/json",
-      "Access-Control-Allow-Headers": "Content-Type",
-      "Access-Control-Allow-Methods": "POST, OPTIONS"
-    },
-    body: JSON.stringify(data)
+export async function onRequest(context) {
+  const cors = {
+    "Content-Type": "application/json",
+    "Access-Control-Allow-Origin": "*",
+    "Cache-Control": "no-store"
   };
-}
-function callGemini(apiKey, prompt) {
-  return new Promise((resolve, reject) => {
-    const body = JSON.stringify({
-      contents: [
-        {
-          parts: [{ text: prompt }]
-        }
-      ],
-      generationConfig: {
-        responseMimeType: "application/json"
-      }
-    });
-    const request = https.request(
-      {
-        hostname: "generativelanguage.googleapis.com",
-        path:
-          "/v1beta/models/gemini-3.8-flash:generateContent?key=" +
-          encodeURIComponent(apiKey),
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Content-Length": Buffer.byteLength(body)
-        },
-        timeout: 25000
-      },
-      (response) => {
-        let responseData = "";
-        response.on("data", (chunk) => {
-          responseData += chunk;
-        });
-        response.on("end", () => {
-          let result;
-          try {
-            result = JSON.parse(responseData);
-          } catch {
-            reject(new Error("Gemini returned an unreadable response."));
-            return;
-          }
-          if (response.statusCode < 200 || response.statusCode >= 300) {
-            reject(
-              new Error(
-                result.error?.message ||
-                "Gemini request failed. Check model access and API key."
-              )
-            );
-            return;
-          }
-          const text =
-            result.candidates?.[0]?.content?.parts
-              ?.map((part) => part.text || "")
-              .join("") || "";
-          if (!text) {
-            reject(new Error("Gemini returned no analysis."));
-            return;
-          }
-          resolve(text);
-        });
-      }
-    );
-    request.on("error", reject);
-    request.on("timeout", () => {
-      request.destroy(
-        new Error("Gemini request timed out. Please try again.")
-      );
-    });
-    request.write(body);
-    request.end();
-  });
-}
-exports.handler = async function (event) {
-  if (event.httpMethod === "OPTIONS") {
-    return sendResponse(200, { success: true });
+
+  const reply = (data, status = 200) =>
+    new Response(JSON.stringify(data), { status, headers: cors });
+
+  if (context.request.method === "OPTIONS") {
+    return new Response(null, { status: 204, headers: cors });
   }
-  if (event.httpMethod !== "POST") {
-    return sendResponse(405, {
-      success: false,
-      error: "Use a POST request."
-    });
+
+  if (context.request.method !== "POST") {
+    return reply({ success: false, error: "Use a POST request." }, 405);
   }
-  const apiKey = process.env.GEMINI_API_KEY;
+
+  const apiKey = context.env.GEMINI_API_KEY;
+
   if (!apiKey) {
-    return sendResponse(500, {
+    return reply({
       success: false,
-      error: "Gemini API key is missing. Check GEMINI_API_KEY in Netlify."
-    });
+      error: "Gemini API key is missing. Check GEMINI_API_KEY in Cloudflare."
+    }, 500);
   }
-  let match;
+
   try {
-    match = JSON.parse(event.body || "{}");
-  } catch {
-    return sendResponse(400, {
-      success: false,
-      error: "Invalid JSON request."
-    });
-  }
-  const home = String(match.home || "").trim();
-  const away = String(match.away || "").trim();
-  const competition = String(
-    match.competition || "Unknown competition"
-  ).trim();
-  const recentData = String(
-    match.recentData || "No recent match statistics supplied."
-  );
-  if (
-    !home ||
-    !away ||
-    home.toLowerCase() === away.toLowerCase()
-  ) {
-    return sendResponse(400, {
-      success: false,
-      error: "Please provide two different team names."
-    });
-  }
-  const prompt = `
+    const match = await context.request.json();
+
+    const home = String(match.home || "").trim();
+    const away = String(match.away || "").trim();
+
+    if (!home || !away || home.toLowerCase() === away.toLowerCase()) {
+      return reply({
+        success: false,
+        error: "Please provide two different team names."
+      }, 400);
+    }
+
+    const prompt = `
 You are the football analysis engine for Browndy Predicts.
-Analyze this football match:
+
+Analyze this match:
 Home team: ${home}
 Away team: ${away}
-Competition: ${competition}
-Available match information:
-${recentData}
+Competition: ${match.competition || "Unknown"}
+Match date: ${match.matchDate || "Not supplied"}
+Recent match information: ${match.recentData || "Not supplied"}
+Upcoming matches: ${match.upcomingMatches || "Not supplied"}
+
 Return ONLY valid JSON with these fields:
 {
-  "home": "${home.replace(/"/g, "'")}",
-  "away": "${away.replace(/"/g, "'")}",
+  "home": "${home}",
+  "away": "${away}",
   "correctScore": "2-1",
   "result": "Home win, Draw, or Away win",
   "doubleChance": "1X, X2, or 12",
@@ -144,37 +62,64 @@ Return ONLY valid JSON with these fields:
   "reasoning": "Brief explanation",
   "limitations": "Missing information"
 }
+
 Rules:
-- Give a match-specific estimate, not a guaranteed result.
-- Do not invent recent results, injuries, or statistics.
-- Do not claim to have checked live data unless supplied above.
-- Ensure the predicted score agrees with the predicted result.
+- Give a match-specific estimate.
+- Do not invent statistics, injuries or recent results.
+- Ensure the score agrees with the predicted result.
 - Use Low confidence when evidence is limited.
-- Be honest about uncertainty.
+- Predictions are estimates, not guarantees.
 `;
-  try {
-    const analysis = await callGemini(apiKey, prompt);
-    let prediction;
-    try {
-      prediction = JSON.parse(analysis);
-    } catch {
-      return sendResponse(502, {
+
+    const response = await fetch(
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": apiKey
+        },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: {
+            responseMimeType: "application/json"
+          }
+        })
+      }
+    );
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      return reply({
         success: false,
-        error: "Gemini returned an unexpected format. Please try again."
-      });
+        error: result.error?.message || "Gemini request failed."
+      }, 502);
     }
-    return sendResponse(200, {
+
+    const text = result.candidates?.[0]?.content?.parts
+      ?.map(part => part.text || "")
+      .join("");
+
+    if (!text) {
+      return reply({
+        success: false,
+        error: "Gemini returned no analysis."
+      }, 502);
+    }
+
+    const prediction = JSON.parse(text);
+
+    return reply({
       success: true,
       provider: "Google Gemini",
       prediction
     });
+
   } catch (error) {
-    console.error("Gemini function error:", error.message);
-    return sendResponse(502, {
+    return reply({
       success: false,
-      error:
-        error.message ||
-        "Gemini analysis failed. Please try again."
-    });
+      error: error.message || "Gemini analysis failed."
+    }, 500);
   }
-};
+}
