@@ -13,10 +13,7 @@ export async function onRequest(context) {
   }
 
   if (context.request.method !== "POST") {
-    return reply({
-      success: false,
-      error: "Use a POST request."
-    }, 405);
+    return reply({ success: false, error: "Use a POST request." }, 405);
   }
 
   const apiKey = context.env.GEMINI_API_KEY;
@@ -57,7 +54,7 @@ ${JSON.stringify(match.recentData || "Not supplied")}
 Upcoming matches:
 ${JSON.stringify(match.upcomingMatches || "Not supplied")}
 
-Return ONLY valid JSON using these fields:
+Return ONLY valid JSON:
 
 {
   "correctScore": "2-1",
@@ -65,7 +62,7 @@ Return ONLY valid JSON using these fields:
   "doubleChance": "1X",
   "overUnder25": "Over 2.5",
   "btts": "Yes",
-  "confidence": "Medium",
+  "confidence": "Low",
   "reasoning": "Brief match-specific explanation",
   "limitations": "Information that is missing"
 }
@@ -79,65 +76,84 @@ Rules:
 - These are estimates, not guarantees.
 `;
 
-    const response = await fetch(
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-goog-api-key": apiKey
-        },
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [{ text: prompt }]
-            }
-          ],
-          generationConfig: {
-            responseMimeType: "application/json"
+    const models = [
+      "gemini-3.8-flash",
+      "gemini-3.7-flash",
+      "gemini-3.6-flash"
+    ];
+
+    let lastError = "Gemini is temporarily unavailable.";
+
+    for (const model of models) {
+      try {
+        const response = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "x-goog-api-key": apiKey
+            },
+            body: JSON.stringify({
+              contents: [
+                { parts: [{ text: prompt }] }
+              ],
+              generationConfig: {
+                responseMimeType: "application/json"
+              }
+            })
           }
-        })
+        );
+
+        const raw = await response.text();
+        let result;
+
+        try {
+          result = JSON.parse(raw);
+        } catch {
+          lastError = "Google returned an unreadable response.";
+          continue;
+        }
+
+        if (!response.ok) {
+          lastError = result.error?.message || "Gemini request failed.";
+          continue;
+        }
+
+        const text = result.candidates?.[0]?.content?.parts
+          ?.map(part => part.text || "")
+          .join("");
+
+        if (!text) {
+          lastError = "Gemini returned no analysis.";
+          continue;
+        }
+
+        let prediction;
+
+        try {
+          prediction = JSON.parse(text);
+        } catch {
+          lastError = "Gemini returned invalid prediction data.";
+          continue;
+        }
+
+        return reply({
+          success: true,
+          provider: "Google Gemini",
+          model,
+          prediction
+        });
+
+      } catch (error) {
+        lastError = error.message || "Connection failed.";
       }
-    );
-
-    const raw = await response.text();
-
-    let result;
-
-    try {
-      result = JSON.parse(raw);
-    } catch {
-      return reply({
-        success: false,
-        error: "Google returned an invalid response."
-      }, 502);
     }
-
-    if (!response.ok) {
-      return reply({
-        success: false,
-        error: result.error?.message || "Gemini request failed."
-      }, 502);
-    }
-
-    const text = result.candidates?.[0]?.content?.parts
-      ?.map(part => part.text || "")
-      .join("");
-
-    if (!text) {
-      return reply({
-        success: false,
-        error: "Gemini returned no analysis."
-      }, 502);
-    }
-
-    const prediction = JSON.parse(text);
 
     return reply({
-      success: true,
-      provider: "Google Gemini",
-      prediction
-    });
+      success: false,
+      error: lastError
+    }, 503);
 
   } catch (error) {
     return reply({
