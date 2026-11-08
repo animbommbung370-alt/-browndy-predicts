@@ -138,7 +138,7 @@ footer{max-width:980px;margin:auto;padding:0 16px 25px;color:var(--muted);font-s
   <h2>Prediction method</h2>
   <p>The statistical model estimates scoring rates from recent completed matches.</p>
   <p>It uses a Poisson model to estimate correct scores and match markets.</p>
-  <p>Five AI endpoints are supported: Gemini, OpenAI, Claude, Mistral and DeepSeek.</p>
+  <p>Gemini is the currently configured AI provider.</p>
   <p class="notice">AI analysis is OFF until you choose to run it. External AI requests may incur charges. Check your provider accounts before using them.</p>
   <p class="notice">If AI services are unavailable, the statistical prediction remains available.</p>
 </div>
@@ -833,7 +833,7 @@ $("runAI").addEventListener("click",async()=>{
   }
 
   const approved=confirm(
-    "AI analysis will contact configured external AI services. " +
+    "AI analysis will contact the configured AI provider (Gemini). " +
     "These requests may use paid API credits or incur charges. " +
     "Only continue if you have checked your provider accounts and accept possible costs. " +
     "Do you want to continue?"
@@ -892,8 +892,8 @@ $("runAI").addEventListener("click",async()=>{
     if(!results.length){
       $("geminiBox").innerHTML=`
         <h3>No AI responses received</h3>
-        <p class="error">All five AI endpoints failed or are not configured.</p>
-        <p class="notice">Your statistical prediction remains available. Check API keys and endpoint deployments.</p>`;
+        <p class="error">The configured AI provider failed or is unavailable.</p>
+        <p class="notice">Your statistical prediction remains available. Check the Gemini API key and endpoint deployment.</p>`;
       $("analysisStatus").textContent="AI services did not return usable predictions.";
       return;
     }
@@ -903,7 +903,7 @@ $("runAI").addEventListener("click",async()=>{
 
     $("geminiBox").innerHTML=`
       <h3>Combined AI analysis</h3>
-      <p><strong>Successful AI responses:</strong> ${results.length} of 5</p>
+      <p><strong>Successful AI responses:</strong> ${results.length} of ${AI_PROVIDERS.length}</p>
       <p><strong>AI correct-score agreement:</strong> ${consensus.votes.score} votes</p>
       <p><strong>AI result agreement:</strong> ${consensus.votes.outcome} votes</p>
       <p><strong>AI double-chance agreement:</strong> ${consensus.votes.double} votes</p>
@@ -920,7 +920,7 @@ $("runAI").addEventListener("click",async()=>{
       <h3 style="margin-top:16px">Individual AI responses</h3>
       ${results.map(item=>`
         <p><strong>${safe(item.name)}:</strong>
-        ${safe(item.correctScore||item.prediction.correctScore||"No score")}
+        ${safe(item.prediction.correctScore||"No score")}
         · ${safe(item.prediction.result||"No result")}</p>
       `).join("")}
 
