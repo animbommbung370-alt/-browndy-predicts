@@ -1,4 +1,5 @@
 <!doctype html>
+
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -68,13 +69,11 @@ footer{max-width:980px;margin:auto;padding:0 16px 25px;color:var(--muted);font-s
 </style>
 </head>
 <body>
-
 <header>
   <div class="brand">MATCH INTELLIGENCE • RESULTS TRACKING</div>
   <h1>Browndy Predicts</h1>
   <p class="sub">Football fixtures, statistical analysis, AI comparison and results tracking.</p>
 </header>
-
 <main>
 <div class="tabs">
   <button class="tab active" data-tab="matches">Matches</button>
@@ -82,10 +81,8 @@ footer{max-width:980px;margin:auto;padding:0 16px 25px;color:var(--muted);font-s
   <button class="tab" data-tab="history">My history</button>
   <button class="tab" data-tab="premium">Premium</button>
 </div>
-
 <section id="matches" class="tabpage">
 <div class="layout">
-
 <div class="card">
   <div class="row">
     <h2>Upcoming fixtures</h2>
@@ -98,7 +95,6 @@ footer{max-width:980px;margin:auto;padding:0 16px 25px;color:var(--muted);font-s
     <p class="muted">Loading recent results...</p>
   </div>
 </div>
-
 <div class="card">
   <h2>Analyse a match</h2>
   <div class="formgrid">
@@ -115,35 +111,30 @@ footer{max-width:980px;margin:auto;padding:0 16px 25px;color:var(--muted);font-s
       <input id="kickoff" type="datetime-local">
     </label>
   </div>
-
   <p>
     <button id="analyse" class="primary">Generate statistical prediction</button>
   </p>
-
   <p>
-    <button id="runAI">Run AI comparison</button>
+    <button id="runAI">Run Gemini + Groq comparison</button>
   </p>
-
   <p id="analysisStatus" class="muted">Select a fixture or enter two teams.</p>
   <div id="prediction" class="results hidden"></div>
   <div id="geminiBox" class="ai-box hidden"></div>
   <p id="dataNote" class="notice">Predictions are estimates, not guarantees.</p>
 </div>
-
 </div>
 </section>
-
 <section id="analysis" class="tabpage hidden">
 <div class="card">
   <h2>Prediction method</h2>
   <p>The statistical model estimates scoring rates from recent completed matches.</p>
   <p>It uses a Poisson model to estimate correct scores and match markets.</p>
-  <p>Gemini is the currently configured AI provider.</p>
-  <p class="notice">AI analysis is OFF until you choose to run it. External AI requests may incur charges. Check your provider accounts before using them.</p>
+  <p>Gemini and Groq are configured as separate AI providers.</p>
+  <p class="notice">AI analysis is OFF until you choose to run it. External AI requests may consume paid credits or incur charges. Check your provider accounts before using them.</p>
+  <p class="notice">Both AI providers are requested at the same time. If one is unavailable, the other can still return a prediction.</p>
   <p class="notice">If AI services are unavailable, the statistical prediction remains available.</p>
 </div>
 </section>
-
 <section id="history" class="tabpage hidden">
 <div class="card">
   <div class="row">
@@ -155,7 +146,6 @@ footer{max-width:980px;margin:auto;padding:0 16px 25px;color:var(--muted);font-s
   <div id="historyList"></div>
 </div>
 </section>
-
 <section id="premium" class="tabpage hidden">
 <div class="card">
   <h2>Premium plan</h2>
@@ -173,38 +163,30 @@ footer{max-width:980px;margin:auto;padding:0 16px 25px;color:var(--muted);font-s
 </div>
 </section>
 </main>
-
 <footer>Browndy Predicts • Predictions are estimates, not guarantees.</footer>
-
 <script>
 "use strict";
-
 const $ = id => document.getElementById(id);
-
 const API = "/api/football";
 const STORAGE = "browndy_predictions_v2";
-
 const AI_PROVIDERS = [
-  {name:"Gemini",url:"/api/gemini"}
+  {name:"Gemini",url:"/api/gemini"},
+  {name:"Groq",url:"/api/groq"}
 ];
-
 let matches = [];
 let recentMatches = [];
 let currentStatistical = null;
 let currentAIResults = [];
-
 function safe(value){
   return String(value ?? "").replace(/[&<>"']/g,c=>({
     "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
   })[c]);
 }
-
 function teamName(team){
   return typeof team === "string"
     ? team
     : (team?.name || team?.shortName || "Unknown team");
 }
-
 function normalizeTeamName(name){
   return String(name || "")
     .toLowerCase()
@@ -213,7 +195,6 @@ function normalizeTeamName(name){
     .replace(/&/g,"and")
     .replace(/[^a-z0-9]/g,"");
 }
-
 function sameTeamName(a,b){
   const x=normalizeTeamName(teamName(a));
   const y=normalizeTeamName(teamName(b));
@@ -222,7 +203,6 @@ function sameTeamName(a,b){
   return Math.min(x.length,y.length)>=6 &&
     (x.startsWith(y)||y.startsWith(x));
 }
-
 function scoreParts(match){
   const score=match.score||{};
   const fullTime=score.fullTime||score;
@@ -231,20 +211,17 @@ function scoreParts(match){
     away:fullTime.away??match.awayScore??null
   };
 }
-
 function matchScore(match){
   const score=scoreParts(match);
   return score.home==null||score.away==null
     ?"vs":`${score.home} – ${score.away}`;
 }
-
 function getHistory(){
   try{
     const data=JSON.parse(localStorage.getItem(STORAGE)||"[]");
     return Array.isArray(data)?data:[];
   }catch{return [];}
 }
-
 function saveHistory(items){
   try{
     localStorage.setItem(STORAGE,JSON.stringify(items.slice(0,100)));
@@ -253,30 +230,25 @@ function saveHistory(items){
     alert("Could not save history on this device.");
   }
 }
-
 function dateText(value){
   if(!value)return "Date not provided";
   const date=new Date(value);
   return isNaN(date)?"Date not provided":
     date.toLocaleString([],{dateStyle:"medium",timeStyle:"short"});
 }
-
 function competitionName(match){
   return typeof match.competition==="string"
     ?match.competition:(match.competition?.name||"Football");
 }
-
 function crest(url){
   return url
     ?`<img class="crest" src="${safe(url)}" alt="" loading="lazy" onerror="this.style.display='none'">`
     :"";
 }
-
 function matchCard(match,index,selectable=true){
   const home=teamName(match.homeTeam);
   const away=teamName(match.awayTeam);
   const date=match.utcDate||match.date;
-
   return `
   <article class="match">
     <div class="teams">
@@ -291,45 +263,36 @@ function matchCard(match,index,selectable=true){
     ${selectable?`<button data-select="${index}">Analyse this match</button>`:""}
   </article>`;
 }
-
 async function loadMatches(){
   const button=$("reload");
   button.disabled=true;
   $("feedStatus").textContent="Loading real fixtures and recent results...";
   $("matchesList").innerHTML="";
   $("recentList").innerHTML="";
-
   try{
     const response=await fetch(API,{
       headers:{Accept:"application/json"},
       cache:"no-store"
     });
-
     let data;
     try{data=await response.json();}
     catch{throw new Error("Football service returned an unreadable response.");}
-
     if(!response.ok||data.success===false){
       throw new Error(data.error||data.message||`Service error ${response.status}`);
     }
-
     matches=Array.isArray(data.matches)?data.matches:[];
     recentMatches=Array.isArray(data.recentMatches)?data.recentMatches:[];
-
     $("feedStatus").innerHTML=`
       <span class="success">
         ${safe(data.upcomingMessage||`${matches.length} upcoming fixtures loaded.`)}
         ${safe(data.recentResultsMessage||`${recentMatches.length} recent results loaded.`)}
       </span>`;
-
     $("matchesList").innerHTML=matches.length
       ?matches.slice(0,50).map((m,i)=>matchCard(m,i)).join("")
       :'<p class="muted">No upcoming fixtures were returned. Try again later.</p>';
-
     $("recentList").innerHTML=recentMatches.length
       ?recentMatches.slice(0,25).map(m=>matchCard(m,0,false)).join("")
       :'<p class="muted">No completed results were returned.</p>';
-
   }catch(error){
     $("feedStatus").innerHTML=`<span class="error">${safe(error.message||"Could not load matches.")}</span>`;
     $("matchesList").innerHTML='<p class="muted">Check the connection and try again.</p>';
@@ -338,20 +301,15 @@ async function loadMatches(){
     button.disabled=false;
   }
 }
-
 $("matchesList").addEventListener("click",event=>{
   const button=event.target.closest("[data-select]");
   if(!button)return;
-
   const match=matches[Number(button.dataset.select)];
   if(!match)return;
-
   $("home").value=teamName(match.homeTeam);
   $("away").value=teamName(match.awayTeam);
   $("competition").value=competitionName(match);
-
   const dateValue=match.utcDate||match.date;
-
   if(dateValue){
     const date=new Date(dateValue);
     $("kickoff").value=new Date(
@@ -360,31 +318,28 @@ $("matchesList").addEventListener("click",event=>{
   }else{
     $("kickoff").value="";
   }
-
+  currentStatistical=null;
+  currentAIResults=[];
   $("analysisStatus").textContent="Fixture selected. Generate a prediction when ready.";
   $("prediction").classList.add("hidden");
   $("geminiBox").classList.add("hidden");
 });
-
 function completedMatches(){
   return recentMatches.filter(match=>{
     const status=String(match.status||"").toUpperCase();
     const score=scoreParts(match);
-
     return ["FINISHED","AWARDED"].includes(status)&&
       score.home!=null&&score.away!=null&&
       Number.isFinite(Number(score.home))&&
       Number.isFinite(Number(score.away));
   });
 }
-
 function poisson(lambda,goals){
   if(lambda<=0)return goals===0?1:0;
   let probability=Math.exp(-lambda);
   for(let i=1;i<=goals;i++)probability*=lambda/i;
   return probability;
 }
-
 function teamRates(team,homeSide){
   const found=completedMatches()
     .filter(match=>
@@ -393,36 +348,26 @@ function teamRates(team,homeSide){
     )
     .sort((a,b)=>new Date(b.utcDate||b.date)-new Date(a.utcDate||a.date))
     .slice(0,10);
-
   if(found.length<3)return null;
-
   let scored=0,conceded=0,venueScored=0,venueConceded=0;
   let venueCount=0,validCount=0;
-
   for(const match of found){
     const isHome=sameTeamName(match.homeTeam,team);
     const score=scoreParts(match);
-
     if(score.home==null||score.away==null)continue;
-
     const goalsFor=Number(isHome?score.home:score.away);
     const goalsAgainst=Number(isHome?score.away:score.home);
-
     if(!Number.isFinite(goalsFor)||!Number.isFinite(goalsAgainst))continue;
-
     validCount++;
     scored+=goalsFor;
     conceded+=goalsAgainst;
-
     if(isHome===homeSide){
       venueScored+=goalsFor;
       venueConceded+=goalsAgainst;
       venueCount++;
     }
   }
-
   if(validCount<3)return null;
-
   return {
     scored:scored/validCount,
     conceded:conceded/validCount,
@@ -431,20 +376,16 @@ function teamRates(team,homeSide){
     count:validCount
   };
 }
-
 function buildModel(home,away){
   const homeRates=teamRates(home,true);
   const awayRates=teamRates(away,false);
-
   if(!homeRates||!awayRates){
     return {homeRate:1.35,awayRate:1.1,realData:false,count:0};
   }
-
   const homeAttack=.65*homeRates.venueScored+.35*homeRates.scored;
   const awayDefence=.65*awayRates.venueConceded+.35*awayRates.conceded;
   const awayAttack=.65*awayRates.venueScored+.35*awayRates.scored;
   const homeDefence=.65*homeRates.venueConceded+.35*homeRates.conceded;
-
   return {
     homeRate:Math.max(.2,Math.min(3.5,.65*((homeAttack+awayDefence)/2)+.35*1.45)),
     awayRate:Math.max(.2,Math.min(3.5,.65*((awayAttack+homeDefence)/2)+.35*1.15)),
@@ -452,48 +393,38 @@ function buildModel(home,away){
     count:Math.min(homeRates.count,awayRates.count)
   };
 }
-
 function makePrediction(home,away){
   const model=buildModel(home,away);
   const scores=[];
   let homeWin=0,draw=0,awayWin=0,over25=0,btts=0,total=0;
-
   for(let h=0;h<=8;h++){
     for(let a=0;a<=8;a++){
       const probability=poisson(model.homeRate,h)*poisson(model.awayRate,a);
       scores.push({h,a,p:probability});
       total+=probability;
-
       if(h>a)homeWin+=probability;
       else if(h===a)draw+=probability;
       else awayWin+=probability;
-
       if(h+a>2)over25+=probability;
       if(h>0&&a>0)btts+=probability;
     }
   }
-
   for(const score of scores)score.p/=total;
-
   homeWin/=total;
   draw/=total;
   awayWin/=total;
   over25/=total;
   btts/=total;
-
   const best=scores.reduce((bestScore,score)=>
     score.p>bestScore.p?score:bestScore
   );
-
   const outcome=homeWin>=draw&&homeWin>=awayWin
     ?"Home win":draw>=awayWin?"Draw":"Away win";
-
   const doubleOptions=[
     {market:"1X",probability:homeWin+draw},
     {market:"12",probability:homeWin+awayWin},
     {market:"X2",probability:draw+awayWin}
   ].sort((a,b)=>b.probability-a.probability);
-
   return {
     home,away,
     score:`${best.h}-${best.a}`,
@@ -508,18 +439,15 @@ function makePrediction(home,away){
     sample:model.count
   };
 }
-
 function pct(value){
   return `${Math.round(value*100)}%`;
 }
-
 function showPrediction(prediction){
   const doubleProbability=prediction.double==="1X"
     ?prediction.homeWin+prediction.draw
     :prediction.double==="X2"
       ?prediction.awayWin+prediction.draw
       :prediction.homeWin+prediction.awayWin;
-
   $("prediction").innerHTML=`
     <div class="metric">
       <small>Statistical correct score</small>
@@ -552,36 +480,28 @@ function showPrediction(prediction){
       <small>BTTS — NO</small>
       <strong>${pct(prediction.notBtts)}</strong>
     </div>`;
-
   $("prediction").classList.remove("hidden");
-
   $("analysisStatus").innerHTML=prediction.realData
     ?'<span class="success">Statistical estimate calculated using recent completed results.</span>'
     :'<span class="notice">Limited-data estimate. Recent results were unavailable for both teams.</span>';
-
   $("dataNote").textContent=prediction.realData
     ?`Used up to ${prediction.sample} recent matches per team. Estimated goals: ${prediction.homeRate.toFixed(2)} home and ${prediction.awayRate.toFixed(2)} away.`
     :"This estimate uses baseline scoring rates because sufficient recent results were unavailable.";
 }
-
 function recentDataForTeams(home,away){
   const finished=completedMatches();
-
   const homeResults=finished.filter(match=>
     sameTeamName(match.homeTeam,home)||sameTeamName(match.awayTeam,home)
   ).slice(0,10);
-
   const awayResults=finished.filter(match=>
     sameTeamName(match.homeTeam,away)||sameTeamName(match.awayTeam,away)
   ).slice(0,10);
-
   const relevant=finished.filter(match=>
     sameTeamName(match.homeTeam,home)||
     sameTeamName(match.awayTeam,home)||
     sameTeamName(match.homeTeam,away)||
     sameTeamName(match.awayTeam,away)
   ).slice(0,30);
-
   function simplify(match){
     const score=scoreParts(match);
     return {
@@ -592,35 +512,28 @@ function recentDataForTeams(home,away){
       date:match.utcDate||match.date||null
     };
   }
-
   return {
     recentResults:relevant.map(simplify),
     homeTeamRecentResults:homeResults.map(simplify),
     awayTeamRecentResults:awayResults.map(simplify)
   };
 }
-
 function findMatchingFixture(home,away){
   return matches.find(match=>
     sameTeamName(match.homeTeam,home)&&sameTeamName(match.awayTeam,away)
   );
 }
-
 function parseScore(value){
   const match=String(value||"").match(/(\d+)\s*[-:–]\s*(\d+)/);
   return match?`${Number(match[1])}-${Number(match[2])}`:"";
 }
-
 function normalizeOutcome(value){
   const v=String(value||"").toLowerCase();
-
   if(v.includes("home")||v==="1"||v==="1x")return "Home win";
   if(v.includes("away")||v==="2"||v==="x2")return "Away win";
   if(v.includes("draw")||v==="x")return "Draw";
-
   return "";
 }
-
 function normalizeDouble(value){
   const v=String(value||"").toUpperCase().replace(/\s/g,"");
   if(v.includes("1X"))return "1X";
@@ -628,25 +541,21 @@ function normalizeDouble(value){
   if(v==="12"||v.includes("1 OR 2"))return "12";
   return "";
 }
-
 function normalizeGoals(value){
   const v=String(value||"").toLowerCase();
   if(v.includes("over"))return "Over 2.5";
   if(v.includes("under"))return "Under 2.5";
   return "";
 }
-
 function normalizeBtts(value){
   const v=String(value||"").toLowerCase();
   if(v.includes("yes")||v==="gg")return "Yes";
   if(v.includes("no")||v==="ng")return "No";
   return "";
 }
-
 function extractPrediction(data){
   const p=data?.prediction||data?.data?.prediction||data?.data||data;
   if(!p||typeof p!=="object")return null;
-
   const result={
     correctScore:parseScore(p.correctScore||p.score||p.predictedScore),
     result:normalizeOutcome(p.result||p.outcome||p.matchResult),
@@ -656,40 +565,31 @@ function extractPrediction(data){
     reasoning:String(p.reasoning||p.analysis||p.explanation||""),
     confidence:String(p.confidence||"")
   };
-
   if(!result.correctScore&&!result.result&&!result.doubleChance&&
      !result.overUnder25&&!result.btts)return null;
-
   return result;
 }
-
 function majority(values){
   const usable=values.filter(Boolean);
   if(!usable.length)return "";
   const counts={};
-
   usable.forEach(value=>{
     counts[value]=(counts[value]||0)+1;
   });
-
   return Object.keys(counts).sort((a,b)=>counts[b]-counts[a])[0];
 }
-
 function consensusPrediction(statistical,results){
   const predictions=results.map(item=>item.prediction).filter(Boolean);
-
   const scores=predictions.map(p=>p.correctScore).filter(Boolean);
   const outcomes=predictions.map(p=>p.result).filter(Boolean);
   const doubles=predictions.map(p=>p.doubleChance).filter(Boolean);
   const goals=predictions.map(p=>p.overUnder25).filter(Boolean);
   const btts=predictions.map(p=>p.btts).filter(Boolean);
-
   const score=majority(scores);
   const outcome=majority(outcomes);
   const double=majority(doubles);
   const overUnder=majority(goals);
   const bothTeams=majority(btts);
-
   const final={
     score:score||statistical.score,
     outcome:outcome||statistical.outcome,
@@ -699,7 +599,6 @@ function consensusPrediction(statistical,results){
     ),
     btts:bothTeams||(statistical.btts>=.5?"Yes":"No")
   };
-
   return {
     final,
     votes:{
@@ -711,36 +610,30 @@ function consensusPrediction(statistical,results){
     }
   };
 }
-
 async function callAI(provider,payload){
   const response=await fetch(provider.url,{
     method:"POST",
     headers:{"Content-Type":"application/json"},
-    body:JSON.stringify(payload)
+    body:JSON.stringify(payload),
+    signal:AbortSignal.timeout(25000)
   });
-
   let data;
   try{data=await response.json();}
   catch{throw new Error("Unreadable response");}
-
   if(!response.ok||data.success===false){
     throw new Error(data.error||`HTTP ${response.status}`);
   }
-
   const prediction=extractPrediction(data);
   if(!prediction)throw new Error("No usable prediction returned.");
-
   return {
     name:provider.name,
     prediction
   };
 }
-
 function savePrediction(statistical,aiResults,finalPrediction){
   const home=statistical.home;
   const away=statistical.away;
   const competition=$("competition").value.trim()||"League match";
-
   const item={
     id:crypto.randomUUID?crypto.randomUUID():String(Date.now())+Math.random(),
     home,
@@ -748,7 +641,6 @@ function savePrediction(statistical,aiResults,finalPrediction){
     comp:competition,
     kickoff:$("kickoff").value||"",
     createdAt:new Date().toISOString(),
-
     prediction:{
       score:finalPrediction.score,
       outcome:finalPrediction.outcome,
@@ -768,46 +660,36 @@ function savePrediction(statistical,aiResults,finalPrediction){
       realData:statistical.realData,
       sample:statistical.sample
     },
-
     statistical:{
       score:statistical.score,
       outcome:statistical.outcome,
       double:statistical.double
     },
-
     aiResults:aiResults.map(item=>({
       name:item.name,
       ...item.prediction
     })),
-
     actual:null,
     grades:null
   };
-
   const history=getHistory();
   history.unshift(item);
   saveHistory(history);
 }
-
 $("analyse").addEventListener("click",()=>{
   const home=$("home").value.trim();
   const away=$("away").value.trim();
-
   if(!home||!away){
     $("analysisStatus").textContent="Enter both team names or select a fixture.";
     return;
   }
-
   if(sameTeamName(home,away)){
     $("analysisStatus").textContent="Choose two different teams.";
     return;
   }
-
   currentStatistical=makePrediction(home,away);
   currentAIResults=[];
-
   showPrediction(currentStatistical);
-
   const final={
     score:currentStatistical.score,
     outcome:currentStatistical.outcome,
@@ -815,43 +697,36 @@ $("analyse").addEventListener("click",()=>{
     over25:currentStatistical.over25>=.5?"Over 2.5":"Under 2.5",
     btts:currentStatistical.btts>=.5?"Yes":"No"
   };
-
   savePrediction(currentStatistical,[],final);
-
   $("geminiBox").innerHTML=`
     <h3>AI comparison</h3>
-    <p>AI analysis has not been run.</p>
+    <p>Gemini and Groq analysis have not been run.</p>
     <p class="notice">Your statistical prediction is ready. Use the separate AI comparison button only after checking possible API charges.</p>`;
-
   $("geminiBox").classList.remove("hidden");
 });
-
 $("runAI").addEventListener("click",async()=>{
   if(!currentStatistical){
     alert("Generate a statistical prediction first.");
     return;
   }
-
   const approved=confirm(
-    "AI analysis will contact the configured AI provider (Gemini). " +
+    "AI analysis will contact Gemini and Groq at the same time. " +
     "These requests may use paid API credits or incur charges. " +
-    "Only continue if you have checked your provider accounts and accept possible costs. " +
+    "Only continue if you have checked both provider accounts and accept possible costs. " +
     "Do you want to continue?"
   );
-
   if(!approved)return;
-
   const button=$("runAI");
   button.disabled=true;
-
-  $("analysisStatus").textContent="Running AI analysis. Please wait...";
+  $("analysisStatus").textContent="Running Gemini and Groq analysis together...";
   $("geminiBox").classList.remove("hidden");
-  $("geminiBox").innerHTML="<h3>AI comparison in progress...</h3>";
-
+  $("geminiBox").innerHTML=`
+    <h3>AI comparison in progress...</h3>
+    <p>Gemini and Groq are analysing this match at the same time.</p>
+    <p class="muted">Your statistical prediction is already available above.</p>`;
   const home=currentStatistical.home;
   const away=currentStatistical.away;
   const fixture=findMatchingFixture(home,away);
-
   const payload={
     home,
     away,
@@ -865,76 +740,73 @@ $("runAI").addEventListener("click",async()=>{
       date:fixture.utcDate||fixture.date||null
     }]:[]
   };
-
-  const results=[];
-  const failures=[];
-
   try{
-    for(const provider of AI_PROVIDERS){
-      $("geminiBox").innerHTML=`
-        <h3>AI comparison in progress...</h3>
-        <p>Checking ${safe(provider.name)}...</p>
-        <p class="muted">${results.length} successful responses so far.</p>`;
-
-      try{
-        const result=await callAI(provider,payload);
-        results.push(result);
-      }catch(error){
+    const settled=await Promise.allSettled(
+      AI_PROVIDERS.map(provider=>callAI(provider,payload))
+    );
+    const results=[];
+    const failures=[];
+    settled.forEach((result,index)=>{
+      if(result.status==="fulfilled"){
+        results.push(result.value);
+      }else{
         failures.push({
-          name:provider.name,
-          error:error.message||"Unavailable"
+          name:AI_PROVIDERS[index].name,
+          error:result.reason?.message||"Unavailable"
         });
       }
-    }
-
+    });
     currentAIResults=results;
-
     if(!results.length){
       $("geminiBox").innerHTML=`
         <h3>No AI responses received</h3>
-        <p class="error">The configured AI provider failed or is unavailable.</p>
-        <p class="notice">Your statistical prediction remains available. Check the Gemini API key and endpoint deployment.</p>`;
-      $("analysisStatus").textContent="AI services did not return usable predictions.";
+        ${failures.map(f=>`
+          <p class="error">${safe(f.name)}: ${safe(f.error)}</p>
+        `).join("")}
+        <p class="notice">Your statistical prediction remains available. Check both API keys, endpoints and Cloudflare deployments.</p>`;
+      $("analysisStatus").textContent="Neither AI provider returned a usable prediction.";
       return;
     }
-
     const consensus=consensusPrediction(currentStatistical,results);
     const final=consensus.final;
-
     $("geminiBox").innerHTML=`
       <h3>Combined AI analysis</h3>
       <p><strong>Successful AI responses:</strong> ${results.length} of ${AI_PROVIDERS.length}</p>
-      <p><strong>AI correct-score agreement:</strong> ${consensus.votes.score} votes</p>
-      <p><strong>AI result agreement:</strong> ${consensus.votes.outcome} votes</p>
-      <p><strong>AI double-chance agreement:</strong> ${consensus.votes.double} votes</p>
-      <p><strong>AI goals-market agreement:</strong> ${consensus.votes.goals} votes</p>
-      <p><strong>AI BTTS agreement:</strong> ${consensus.votes.btts} votes</p>
-
+      <p><strong>AI correct-score votes:</strong> ${consensus.votes.score}</p>
+      <p><strong>AI result votes:</strong> ${consensus.votes.outcome}</p>
+      <p><strong>AI double-chance votes:</strong> ${consensus.votes.double}</p>
+      <p><strong>AI goals-market votes:</strong> ${consensus.votes.goals}</p>
+      <p><strong>AI BTTS votes:</strong> ${consensus.votes.btts}</p>
       <h3 style="margin-top:16px">Combined prediction</h3>
       <p><strong>Correct score:</strong> ${safe(final.score)}</p>
       <p><strong>Match result:</strong> ${safe(final.outcome)}</p>
       <p><strong>Double chance:</strong> ${safe(final.double)}</p>
       <p><strong>Over/Under:</strong> ${safe(final.over25)}</p>
       <p><strong>BTTS:</strong> ${safe(final.btts)}</p>
-
       <h3 style="margin-top:16px">Individual AI responses</h3>
       ${results.map(item=>`
-        <p><strong>${safe(item.name)}:</strong>
-        ${safe(item.prediction.correctScore||"No score")}
-        · ${safe(item.prediction.result||"No result")}</p>
+        <div class="match">
+          <strong>${safe(item.name)}</strong>
+          <p>Correct score: ${safe(item.prediction.correctScore||"No score")}</p>
+          <p>Result: ${safe(item.prediction.result||"No result")}</p>
+          <p>Double chance: ${safe(item.prediction.doubleChance||"Not supplied")}</p>
+          <p>Goals: ${safe(item.prediction.overUnder25||"Not supplied")}</p>
+          <p>BTTS: ${safe(item.prediction.btts||"Not supplied")}</p>
+          <p>Confidence: ${safe(item.prediction.confidence||"Not supplied")}</p>
+          ${item.prediction.reasoning?`<p>${safe(item.prediction.reasoning)}</p>`:""}
+        </div>
       `).join("")}
-
       ${failures.length?`
-        <p class="notice">Unavailable services: ${failures.map(f=>safe(f.name)).join(", ")}</p>
+        <h3>Unavailable providers</h3>
+        ${failures.map(f=>`
+          <p class="error">${safe(f.name)}: ${safe(f.error)}</p>
+        `).join("")}
       `:""}
-
-      <p class="notice">The combined prediction uses the most common valid AI answer for each market. Where no AI answer is available, it uses the statistical prediction. Agreement is not a guarantee of accuracy.</p>`;
-
+      <p class="notice">The combined prediction uses the most common valid AI answer for each market. If the providers disagree or a market is missing, the statistical prediction is used as a fallback. Agreement is not a guarantee of accuracy.</p>`;
     const history=getHistory();
     const latest=history.find(item=>
       item.home===home&&item.away===away&&!item.actual
     );
-
     if(latest){
       latest.prediction.score=final.score;
       latest.prediction.outcome=final.outcome;
@@ -947,40 +819,36 @@ $("runAI").addEventListener("click",async()=>{
       }));
       saveHistory(history);
     }
-
     $("analysisStatus").innerHTML=
-      `<span class="success">${results.length} AI system(s) returned usable predictions.</span>`;
-
+      `<span class="success">${results.length} of ${AI_PROVIDERS.length} AI provider(s) returned usable predictions.</span>`;
+  }catch(error){
+    $("geminiBox").innerHTML=`
+      <h3>AI comparison error</h3>
+      <p class="error">${safe(error.message||"An unexpected error occurred.")}</p>
+      <p class="notice">Your statistical prediction remains available.</p>`;
+    $("analysisStatus").textContent="AI comparison could not be completed.";
   }finally{
     button.disabled=false;
   }
 });
-
 function grade(item,homeGoals,awayGoals){
   const prediction=item.prediction;
-
   const actualOutcome=homeGoals>awayGoals
     ?"Home win":homeGoals===awayGoals?"Draw":"Away win";
-
   const predictedScore=String(prediction.score||"")
     .replace(/\s/g,"")
     .replace(":","-")
     .split("-")
     .map(Number);
-
   const scoreCorrect=predictedScore.length===2&&
     predictedScore[0]===homeGoals&&predictedScore[1]===awayGoals;
-
   let doubleCorrect=false;
-
   if(prediction.double==="1X")doubleCorrect=homeGoals>=awayGoals;
   else if(prediction.double==="X2")doubleCorrect=awayGoals>=homeGoals;
   else if(prediction.double==="12")doubleCorrect=homeGoals!==awayGoals;
-
   const totalGoals=homeGoals+awayGoals;
   const actualGoalsMarket=totalGoals>2.5?"Over 2.5":"Under 2.5";
   const actualBtts=homeGoals>0&&awayGoals>0?"Yes":"No";
-
   return {
     score:scoreCorrect,
     outcome:prediction.outcome===actualOutcome,
@@ -989,57 +857,45 @@ function grade(item,homeGoals,awayGoals){
     btts:prediction.btts===actualBtts
   };
 }
-
 function renderHistory(){
   const history=getHistory();
   const checked=history.filter(item=>item.grades);
-
   let won=0,lost=0;
-
   checked.forEach(item=>{
     Object.values(item.grades).forEach(value=>{
       if(value)won++;
       else lost++;
     });
   });
-
   $("historyStats").innerHTML=`
     <div class="metric"><small>Saved predictions</small><strong>${history.length}</strong></div>
     <div class="metric"><small>Checked predictions</small><strong>${checked.length}</strong></div>
     <div class="metric"><small>Markets won</small><strong>${won}</strong></div>
     <div class="metric"><small>Market accuracy</small><strong>${won+lost?Math.round(won/(won+lost)*100)+"%":"—"}</strong></div>`;
-
   if(!history.length){
     $("historyList").innerHTML='<p class="muted">No saved predictions yet.</p>';
     return;
   }
-
   $("historyList").innerHTML=history.map(item=>{
     const actual=item.actual;
     const grades=item.grades;
     const prediction=item.prediction;
-
     const marketGrade=(label,key)=>
       `<span class="badge">${label}: ${grades[key]?"WON":"LOST"}</span>`;
-
     return `
     <article class="match">
       <strong>${safe(item.home)} vs ${safe(item.away)}</strong>
       <div class="meta">${safe(item.comp)} · Created ${safe(dateText(item.createdAt))}</div>
-
       <p>Final saved prediction: <strong>${safe(prediction.score)}</strong></p>
       <p>1X2: ${safe(prediction.outcome)} · Double chance: ${safe(prediction.double)}</p>
       <p>Goals: ${safe(prediction.over25)} · BTTS: ${safe(prediction.btts)}</p>
-
       <p>Data basis:
         <span class="badge">${prediction.realData?"Recent results available":"Baseline estimate"}</span>
       </p>
-
       ${item.aiResults?.length?`
         <p><strong>AI systems that responded:</strong>
         ${item.aiResults.map(a=>safe(a.name)).join(", ")}</p>
       `:"<p class='muted'>No AI comparison saved.</p>"}
-
       ${actual?`
         <p>Actual score: <strong>${actual.home}–${actual.away}</strong></p>
         <p>Prediction results:</p>
@@ -1059,87 +915,68 @@ function renderHistory(){
         </div>
         <button data-check="${safe(item.id)}">Check result</button>
       `}
-
       <button data-delete="${safe(item.id)}">Delete prediction</button>
     </article>`;
   }).join("");
 }
-
 $("historyList").addEventListener("click",event=>{
   const checkButton=event.target.closest("[data-check]");
   const deleteButton=event.target.closest("[data-delete]");
   const history=getHistory();
-
   if(deleteButton){
     if(confirm("Delete this prediction from history?")){
       saveHistory(history.filter(item=>item.id!==deleteButton.dataset.delete));
     }
     return;
   }
-
   if(!checkButton)return;
-
   const id=checkButton.dataset.check;
   const homeInput=document.querySelector(`[data-home="${CSS.escape(id)}"]`);
   const awayInput=document.querySelector(`[data-away="${CSS.escape(id)}"]`);
-
   if(!homeInput||!awayInput||homeInput.value===""||awayInput.value===""){
     alert("Enter both final scores first.");
     return;
   }
-
   const homeGoals=Number(homeInput.value);
   const awayGoals=Number(awayInput.value);
-
   if(!Number.isInteger(homeGoals)||!Number.isInteger(awayGoals)||
      homeGoals<0||awayGoals<0||homeGoals>30||awayGoals>30){
     alert("Enter valid scores between 0 and 30.");
     return;
   }
-
   const item=history.find(entry=>entry.id===id);
   if(!item)return;
-
   if(item.grades){
     alert("This prediction has already been checked.");
     return;
   }
-
   item.actual={
     home:homeGoals,
     away:awayGoals,
     checkedAt:new Date().toISOString()
   };
-
   item.grades=grade(item,homeGoals,awayGoals);
   saveHistory(history);
-
   alert("Result saved successfully! Your prediction has been checked.");
 });
-
 $("clearHistory").addEventListener("click",()=>{
   if(confirm("Delete all saved predictions on this device?")){
     localStorage.removeItem(STORAGE);
     renderHistory();
   }
 });
-
 $("reload").addEventListener("click",loadMatches);
-
 document.querySelectorAll("[data-tab]").forEach(button=>{
   button.addEventListener("click",()=>{
     document.querySelectorAll("[data-tab]").forEach(tab=>{
       tab.classList.toggle("active",tab===button);
     });
-
     document.querySelectorAll(".tabpage").forEach(page=>{
       page.classList.toggle("hidden",page.id!==button.dataset.tab);
     });
-
     if(button.dataset.tab==="history")renderHistory();
   });
 });
-
 renderHistory();
 loadMatches();
 </script>
