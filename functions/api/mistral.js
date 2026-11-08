@@ -11,14 +11,27 @@ export async function onRequest(context) {
     return new Response(null, { status: 204, headers });
   }
 
+  const apiKey = context.env.MISTRAL_API_KEY;
+
+  // SAFE HEALTH CHECK: Does not contact Mistral.
+  if (context.request.method === "GET") {
+    return reply({
+      success: true,
+      provider: "Mistral",
+      configured: Boolean(apiKey),
+      message: apiKey
+        ? "Mistral API key is present in Cloudflare."
+        : "MISTRAL_API_KEY is missing in Cloudflare.",
+      apiRequestSent: false
+    });
+  }
+
   if (context.request.method !== "POST") {
     return reply({
       success: false,
-      error: "Use a POST request."
+      error: "Use GET for health checks or POST for analysis."
     }, 405);
   }
-
-  const apiKey = context.env.MISTRAL_API_KEY;
 
   if (!apiKey) {
     return reply({
