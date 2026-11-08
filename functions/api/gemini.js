@@ -154,7 +154,7 @@ Rules:
                   temperature: 0.2
                 }
               }),
-              signal: AbortSignal.timeout(20000)
+              signal: AbortSignal.timeout(50000)
             }
           );
 
