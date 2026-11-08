@@ -1,9 +1,9 @@
 export async function onRequest(context) {
-const headers = {
-“Content-Type”: “application/json”,
-“Access-Control-Allow-Origin”: “*”,
-“Cache-Control”: “no-store”
-};
+  const headers = {
+    "Content-Type": "application/json",
+    "Access-Control-Allow-Origin": "*",
+    "Cache-Control": "no-store"
+  };
 
 const reply = (data, status = 200) =>
 new Response(JSON.stringify(data), { status, headers });
