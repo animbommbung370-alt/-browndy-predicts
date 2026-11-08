@@ -15,10 +15,7 @@ export async function onRequest(context) {
   }
 
   if (context.request.method !== "POST") {
-    return reply({
-      success: false,
-      error: "Use a POST request."
-    }, 405);
+    return reply({ success: false, error: "Use a POST request." }, 405);
   }
 
   const apiKey = context.env.GEMINI_API_KEY;
@@ -36,11 +33,7 @@ export async function onRequest(context) {
     const home = String(match.home || "").trim();
     const away = String(match.away || "").trim();
 
-    if (
-      !home ||
-      !away ||
-      home.toLowerCase() === away.toLowerCase()
-    ) {
+    if (!home || !away || home.toLowerCase() === away.toLowerCase()) {
       return reply({
         success: false,
         error: "Please provide two different teams."
@@ -58,42 +51,54 @@ export async function onRequest(context) {
     const prompt = `
 You are the football analysis assistant for Browndy Predicts.
 
-Analyse this football match carefully.
+Analyse this match using the supplied information.
 
-Home: ${home}
-Away: ${away}
+Home team: ${home}
+Away team: ${away}
 Competition: ${match.competition || "Unknown"}
 Date: ${match.matchDate || "Unknown"}
 
-Recent team information:
+Recent results:
 ${recent}
 
 Upcoming matches:
 ${upcoming}
 
-Return ONLY a valid JSON object with these exact fields:
+Return a match-specific prediction.
 
-{
-  "correctScore": "2-1",
-  "result": "Home win",
-  "doubleChance": "1X",
-  "overUnder25": "Over 2.5",
-  "btts": "Yes",
-  "confidence": "Medium",
-  "reasoning": "Brief match-specific explanation",
-  "limitations": "Missing information"
-}
-
-Rules:
-- Give a match-specific prediction.
+Requirements:
 - Do not always predict 1-1.
-- Make the score agree with the predicted result.
-- Consider the supplied recent results.
+- Correct score must agree with the predicted result.
+- Use the supplied recent results.
 - Do not invent injuries or statistics.
 - Use Low confidence when information is limited.
+- Keep reasoning brief.
 - Predictions are estimates, not guarantees.
-- Keep the explanation brief.
 `;
+
+    const schema = {
+      type: "OBJECT",
+      properties: {
+        correctScore: { type: "STRING" },
+        result: { type: "STRING" },
+        doubleChance: { type: "STRING" },
+        overUnder25: { type: "STRING" },
+        btts: { type: "STRING" },
+        confidence: { type: "STRING" },
+        reasoning: { type: "STRING" },
+        limitations: { type: "STRING" }
+      },
+      required: [
+        "correctScore",
+        "result",
+        "doubleChance",
+        "overUnder25",
+        "btts",
+        "confidence",
+        "reasoning",
+        "limitations"
+      ]
+    };
 
     const models = [
       "gemini-3.8-flash",
@@ -119,38 +124,14 @@ Rules:
                 "x-goog-api-key": apiKey
               },
               body: JSON.stringify({
-                contents: [
-                  {
-                    role: "user",
-                    parts: [{ text: prompt }]
-                  }
-                ],
+                contents: [{
+                  role: "user",
+                  parts: [{ text: prompt }]
+                }],
                 generationConfig: {
                   responseMimeType: "application/json",
-                  responseSchema: {
-                    type: "OBJECT",
-                    properties: {
-                      correctScore: { type: "STRING" },
-                      result: { type: "STRING" },
-                      doubleChance: { type: "STRING" },
-                      overUnder25: { type: "STRING" },
-                      btts: { type: "STRING" },
-                      confidence: { type: "STRING" },
-                      reasoning: { type: "STRING" },
-                      limitations: { type: "STRING" }
-                    },
-                    required: [
-                      "correctScore",
-                      "result",
-                      "doubleChance",
-                      "overUnder25",
-                      "btts",
-                      "confidence",
-                      "reasoning",
-                      "limitations"
-                    ]
-                  },
-                  maxOutputTokens: 700,
+                  responseSchema: schema,
+                  maxOutputTokens: 1200,
                   temperature: 0.2
                 }
               }),
@@ -159,24 +140,22 @@ Rules:
           );
 
           const raw = await response.text();
-          let result;
+
+          let data;
 
           try {
-            result = JSON.parse(raw);
+            data = JSON.parse(raw);
           } catch {
             lastError = "Google returned an unreadable response.";
             break;
           }
 
           if (!response.ok) {
-            lastError =
-              result.error?.message || "Gemini request failed.";
+            lastError = data.error?.message ||
+              `Gemini request failed (${response.status}).`;
 
-            const temporary =
-              response.status === 429 ||
-              response.status === 503 ||
-              response.status === 502 ||
-              response.status === 408;
+            const temporary = [429, 502, 503, 408]
+              .includes(response.status);
 
             if (temporary && !retryUsed) {
               retryUsed = true;
@@ -189,13 +168,18 @@ Rules:
             break;
           }
 
-          const text = result.candidates?.[0]?.content?.parts
+          const candidate = data.candidates?.[0];
+
+          const text = candidate?.content?.parts
             ?.map(part => part.text || "")
             .join("")
             .trim();
 
           if (!text) {
-            lastError = "Gemini returned no analysis.";
+            lastError = candidate?.finishReason
+              ? `Gemini returned no text. Finish reason: ${candidate.finishReason}.`
+              : "Gemini returned an empty response.";
+
             break;
           }
 
@@ -204,27 +188,34 @@ Rules:
           try {
             const cleaned = text
               .replace(/^```(?:json)?\s*/i, "")
-              .replace(/\s*```$/, "")
+              .replace(/\s*```$/i, "")
               .trim();
 
-            try {
-              prediction = JSON.parse(cleaned);
-            } catch {
-              const start = cleaned.indexOf("{");
-              const end = cleaned.lastIndexOf("}");
+            prediction = JSON.parse(cleaned);
 
-              if (start === -1 || end <= start) {
-                throw new Error("No JSON object found.");
-              }
-
-              prediction = JSON.parse(
-                cleaned.slice(start, end + 1)
-              );
+            // Also accept a JSON object inside surrounding text.
+            if (!prediction || typeof prediction !== "object") {
+              throw new Error("Invalid prediction object.");
             }
           } catch {
-            lastError =
-              "Gemini returned unreadable prediction data.";
-            break;
+            const start = text.indexOf("{");
+            const end = text.lastIndexOf("}");
+
+            if (start !== -1 && end > start) {
+              try {
+                prediction = JSON.parse(
+                  text.slice(start, end + 1)
+                );
+              } catch {
+                lastError =
+                  "Gemini returned text that could not be converted into prediction data.";
+                break;
+              }
+            } else {
+              lastError =
+                "Gemini did not return a valid JSON prediction.";
+              break;
+            }
           }
 
           const required = [
@@ -235,15 +226,14 @@ Rules:
             "btts"
           ];
 
-          const valid = prediction &&
-            required.every(key =>
-              typeof prediction[key] === "string" &&
-              prediction[key].trim().length > 0
-            );
+          const valid = required.every(key =>
+            typeof prediction[key] === "string" &&
+            prediction[key].trim().length > 0
+          );
 
           if (!valid) {
             lastError =
-              "Gemini returned incomplete prediction data.";
+              "Gemini returned incomplete prediction fields.";
             break;
           }
 
@@ -258,17 +248,16 @@ Rules:
               overUnder25: prediction.overUnder25.trim(),
               btts: prediction.btts.trim(),
               confidence: prediction.confidence || "Low",
-              reasoning:
-                prediction.reasoning || "No explanation supplied.",
-              limitations:
-                prediction.limitations ||
+              reasoning: prediction.reasoning ||
+                "No explanation supplied.",
+              limitations: prediction.limitations ||
                 "Information may be limited."
             }
           });
 
         } catch (error) {
           lastError = error.name === "TimeoutError"
-            ? "Gemini took too long. Please try again."
+            ? "Gemini took too long to respond."
             : "Gemini connection failed.";
 
           break;
