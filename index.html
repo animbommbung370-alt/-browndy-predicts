@@ -615,7 +615,7 @@ async function callAI(provider,payload){
     method:"POST",
     headers:{"Content-Type":"application/json"},
     body:JSON.stringify(payload),
-    signal:AbortSignal.timeout(25000)
+    signal:AbortSignal.timeout(60000)
   });
   let data;
   try{data=await response.json();}
