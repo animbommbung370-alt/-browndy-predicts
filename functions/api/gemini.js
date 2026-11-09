@@ -104,7 +104,7 @@ Predictions are estimates, not guarantees.
             temperature: 0.2
           }
         }),
-        signal: AbortSignal.timeout(25000)
+        signal: AbortSignal.timeout(45000) 
       }
     );
 
