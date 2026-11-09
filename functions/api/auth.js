@@ -1,0 +1,168 @@
+const json = (data, status = 200) =>
+  new Response(JSON.stringify(data), {
+    status,
+    headers: {
+      "Content-Type": "application/json",
+      "Cache-Control": "no-store"
+    }
+  });
+
+async function hashPassword(password, salt) {
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode(password),
+    "PBKDF2",
+    false,
+    ["deriveBits"]
+  );
+
+  const bits = await crypto.subtle.deriveBits(
+    {
+      name: "PBKDF2",
+      salt,
+      iterations: 250000,
+      hash: "SHA-256"
+    },
+    key,
+    256
+  );
+
+  return Array.from(new Uint8Array(bits))
+    .map(b => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+function randomBytes(length) {
+  const bytes = new Uint8Array(length);
+  crypto.getRandomValues(bytes);
+  return bytes;
+}
+
+function toHex(bytes) {
+  return Array.from(bytes)
+    .map(b => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+async function digest(value) {
+  const result = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(value)
+  );
+  return toHex(new Uint8Array(result));
+}
+
+export async function onRequestPost({ request, env }) {
+  try {
+    if (!env.DB) {
+      return json({ error: "Database is unavailable." }, 500);
+    }
+
+    const body = await request.json();
+    const action = String(body.action || "").toLowerCase();
+    const phone = String(body.phone_number || "").trim();
+    const password = String(body.password || "");
+
+    if (!["register", "login", "logout"].includes(action)) {
+      return json({ error: "Invalid action." }, 400);
+    }
+
+    if (action === "logout") {
+      const token = request.headers
+        .get("Authorization")?.replace(/^Bearer /, "");
+
+      if (token) {
+        await env.DB.prepare(
+          "DELETE FROM customer_sessions WHERE token_hash = ?"
+        ).bind(await digest(token)).run();
+      }
+
+      return json({ success: true, message: "Logged out." });
+    }
+
+    if (!phone || phone.length > 30) {
+      return json({ error: "Enter a valid phone number." }, 400);
+    }
+
+    if (password.length < 8 || password.length > 128) {
+      return json({
+        error: "Password must contain 8 to 128 characters."
+      }, 400);
+    }
+
+    let customer;
+
+    if (action === "register") {
+      const salt = randomBytes(16);
+      const passwordHash =
+        toHex(salt) + ":" + await hashPassword(password, salt);
+
+      try {
+        await env.DB.prepare(`
+          INSERT INTO customers (phone_number, password_hash)
+          VALUES (?, ?)
+        `).bind(phone, passwordHash).run();
+      } catch {
+        return json({
+          error: "This phone number is already registered."
+        }, 409);
+      }
+
+      customer = await env.DB.prepare(`
+        SELECT id, phone_number FROM customers
+        WHERE phone_number = ?
+      `).bind(phone).first();
+
+    } else {
+      customer = await env.DB.prepare(`
+        SELECT id, phone_number, password_hash
+        FROM customers
+        WHERE phone_number = ?
+      `).bind(phone).first();
+
+      if (!customer) {
+        return json({ error: "Incorrect phone number or password." }, 401);
+      }
+
+      const [saltHex, savedHash] = customer.password_hash.split(":");
+      const salt = new Uint8Array(
+        saltHex.match(/.{2}/g).map(byte => parseInt(byte, 16))
+      );
+
+      const suppliedHash = await hashPassword(password, salt);
+
+      if (suppliedHash !== savedHash) {
+        return json({ error: "Incorrect phone number or password." }, 401);
+      }
+    }
+
+    const token = toHex(randomBytes(32));
+    const tokenHash = await digest(token);
+    const expiresAt = new Date(
+      Date.now() + 7 * 24 * 60 * 60 * 1000
+    ).toISOString();
+
+    await env.DB.prepare(`
+      INSERT INTO customer_sessions
+      (customer_id, token_hash, expires_at)
+      VALUES (?, ?, ?)
+    `).bind(customer.id, tokenHash, expiresAt).run();
+
+    return json({
+      success: true,
+      message: action === "register"
+        ? "Account created successfully."
+        : "Login successful.",
+      customer: {
+        id: customer.id,
+        phone_number: customer.phone_number
+      },
+      token,
+      expires_at: expiresAt
+    });
+
+  } catch (error) {
+    return json({ error: "Unable to process your request." }, 500);
+  }
+}
