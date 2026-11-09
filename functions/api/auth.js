@@ -166,3 +166,53 @@ export async function onRequestPost({ request, env }) {
     return json({ error: "Unable to process your request." }, 500);
   }
 }
+export async function onRequestGet({ request, env }) {
+  try {
+    if (!env.DB) {
+      return json({ error: "Database is unavailable." }, 500);
+    }
+
+    const authorization = request.headers.get("Authorization") || "";
+    const token = authorization.startsWith("Bearer ")
+      ? authorization.slice(7)
+      : "";
+
+    if (!token || token.length > 200) {
+      return json({ error: "Please log in first." }, 401);
+    }
+
+    const customer = await env.DB.prepare(`
+      SELECT c.id, c.phone_number, c.premium_until
+      FROM customer_sessions s
+      JOIN customers c ON c.id = s.customer_id
+      WHERE s.token_hash = ?
+        AND s.expires_at > ?
+      LIMIT 1
+    `).bind(
+      await digest(token),
+      new Date().toISOString()
+    ).first();
+
+    if (!customer) {
+      return json({ error: "Session expired. Please log in again." }, 401);
+    }
+
+    const premiumActive = Boolean(
+      customer.premium_until &&
+      new Date(customer.premium_until).getTime() > Date.now()
+    );
+
+    return json({
+      success: true,
+      customer: {
+        id: customer.id,
+        phone_number: customer.phone_number
+      },
+      premium_active: premiumActive,
+      premium_until: customer.premium_until || null
+    });
+
+  } catch (error) {
+    return json({ error: "Unable to check account." }, 500);
+  }
+}
