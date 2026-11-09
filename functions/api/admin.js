@@ -26,7 +26,7 @@ export async function onRequestPost({ request, env }) {
     }
 
     const payment = await env.DB.prepare(`
-      SELECT id, status
+      SELECT id, user_id, status
       FROM payment_requests
       WHERE transaction_id = ?
       LIMIT 1
@@ -41,27 +41,52 @@ export async function onRequestPost({ request, env }) {
     }
 
     if (action === "approve") {
-      const approvedAt = new Date();
-      const expiresAt = new Date(
-        approvedAt.getTime() + 30 * 24 * 60 * 60 * 1000
-      );
+      if (!payment.user_id) {
+        return json({
+          error: "This payment is not linked to a customer account."
+        }, 400);
+      }
 
-      await env.DB.prepare(`
+      const approvedAt = new Date().toISOString();
+
+      const update = await env.DB.prepare(`
         UPDATE payment_requests
         SET status = 'approved',
             approved_at = ?,
-            expires_at = ?
+            expires_at = datetime('now', '+30 days')
         WHERE id = ? AND status = 'pending'
-      `).bind(
-        approvedAt.toISOString(),
-        expiresAt.toISOString(),
-        payment.id
-      ).run();
+      `).bind(approvedAt, payment.id).run();
+
+      if (!update.meta.changes) {
+        return json({
+          error: "This request has already been processed."
+        }, 409);
+      }
+
+      await env.DB.prepare(`
+        UPDATE customers
+        SET premium_until = datetime(
+          CASE
+            WHEN premium_until IS NOT NULL
+              AND premium_until > CURRENT_TIMESTAMP
+            THEN premium_until
+            ELSE CURRENT_TIMESTAMP
+          END,
+          '+30 days'
+        )
+        WHERE id = ?
+      `).bind(payment.user_id).run();
+
+      const customer = await env.DB.prepare(`
+        SELECT premium_until
+        FROM customers
+        WHERE id = ?
+      `).bind(payment.user_id).first();
 
       return json({
         success: true,
         status: "approved",
-        expires_at: expiresAt.toISOString()
+        premium_until: customer.premium_until
       });
     }
 
