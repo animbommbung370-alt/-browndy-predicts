@@ -94,13 +94,21 @@ export async function onRequest(context) {
   }
   try {
     const today = new Date();
-    const todayString = dateString(today);
-    // Load upcoming fixtures for the next 30 days.
-    const upcomingEnd = dateString(
-      shiftDate(today, 30)
-    );
-    const upcomingUrl =
-      `${API_BASE}/matches?dateFrom=${todayString}&dateTo=${upcomingEnd}`;
+    // Split the next 30 days into three requests.
+    const upcomingRanges = [];
+    for (let i = 0; i < 3; i++) {
+      const startDay = i * 10;
+      const endDay = startDay + 9;
+      upcomingRanges.push({
+        from: dateString(shiftDate(today, startDay)),
+        to: dateString(shiftDate(today, endDay))
+      });
+    }
+    const upcomingRequests = upcomingRanges.map(range => {
+      const url =
+        `${API_BASE}/matches?dateFrom=${range.from}&dateTo=${range.to}`;
+      return apiRequest(url, token);
+    });
     // Load recent completed matches in four date ranges.
     const recentRanges = [];
     let rangeEnd = today;
@@ -112,44 +120,46 @@ export async function onRequest(context) {
       });
       rangeEnd = shiftDate(rangeStart, -1);
     }
-    const recentRequests = recentRanges.map((range) => {
+    const recentRequests = recentRanges.map(range => {
       const url =
         `${API_BASE}/matches?dateFrom=${range.from}&dateTo=${range.to}&status=FINISHED`;
       return apiRequest(url, token);
     });
     const results = await Promise.allSettled([
-      apiRequest(upcomingUrl, token),
+      ...upcomingRequests,
       ...recentRequests
     ]);
-   // Process upcoming fixtures.
-const upcomingResult = results[0];
-const upcomingAvailable =
-  upcomingResult.status === "fulfilled";
-const upcomingError =
-  upcomingResult.status === "rejected"
-    ? upcomingResult.reason.message
-    : null;
-let upcomingMatches = [];
-    if (upcomingAvailable) {
-      const rawUpcoming =
-        upcomingResult.value.matches || [];
-      const uniqueUpcoming = Array.from(
-        new Map(
-          rawUpcoming.map(match => [match.id, match])
-        ).values()
+    // Process upcoming fixtures from all three requests.
+    const upcomingResults = results.slice(0, 3);
+    const successfulUpcomingResults = upcomingResults
+      .filter(result => result.status === "fulfilled");
+    const upcomingAvailable =
+      successfulUpcomingResults.length > 0;
+    const upcomingErrors = upcomingResults
+      .filter(result => result.status === "rejected")
+      .map(result => result.reason?.message || "Unknown fixture error");
+    let upcomingMatches = [];
+    for (const result of successfulUpcomingResults) {
+      upcomingMatches = upcomingMatches.concat(
+        result.value.matches || []
       );
-      upcomingMatches = uniqueUpcoming
-        .filter(match =>
-          ["SCHEDULED", "TIMED"].includes(match.status)
-        )
-        .map(formatMatch)
-        .sort((a, b) =>
-          new Date(a.utcDate) - new Date(b.utcDate)
-        );
     }
+    const uniqueUpcomingMatches = Array.from(
+      new Map(
+        upcomingMatches.map(match => [match.id, match])
+      ).values()
+    );
+    upcomingMatches = uniqueUpcomingMatches
+      .filter(match =>
+        ["SCHEDULED", "TIMED"].includes(match.status)
+      )
+      .map(formatMatch)
+      .sort((a, b) =>
+        new Date(a.utcDate) - new Date(b.utcDate)
+      );
     // Process recent results.
     const successfulRecentResults = results
-      .slice(1)
+      .slice(3)
       .filter(result => result.status === "fulfilled");
     const recentResultsAvailable =
       successfulRecentResults.length > 0;
@@ -179,8 +189,12 @@ let upcomingMatches = [];
       provider: "Football-Data.org",
       matches: upcomingMatches,
       recentMatches,
-      upcomingAvailable, 
-      upcomingError,
+      upcomingAvailable,
+      upcomingError: upcomingErrors.length
+        ? upcomingErrors.join("; ")
+        : null,
+      upcomingRequestsSuccessful:
+        successfulUpcomingResults.length,
       recentResultsAvailable,
       statisticsAvailable: false,
       recentMatchesCount: recentMatches.length,
