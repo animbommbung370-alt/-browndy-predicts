@@ -115,9 +115,9 @@ export async function onRequest(context) {
     const today = new Date();
     const todayString = dateString(today);
 
-    // Load upcoming fixtures for the next 30 days.
+    // Load upcoming fixtures for the next 7 days.
     const upcomingEnd = dateString(
-      shiftDate(today, 31)
+      shiftDate(today, 7)
     );
 
     const upcomingUrl =
