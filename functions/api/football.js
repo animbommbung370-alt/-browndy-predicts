@@ -94,13 +94,13 @@ export async function onRequest(context) {
   if (context.request.method === "OPTIONS") {
     return jsonResponse({}, 204);
   }
+if (!["GET", "POST"].includes(context.request.method)) {
+  return jsonResponse({
+    success: false,
+    error: "Method not allowed."
+  }, 405);
+}
 
-  if (context.request.method !== "POST") {
-    return jsonResponse({
-      success: false,
-      error: "Use a POST request."
-    }, 405);
-  }
 
   const token = context.env.FOOTBALL_DATA_TOKEN;
 
