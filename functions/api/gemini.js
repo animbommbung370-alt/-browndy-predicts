@@ -102,7 +102,7 @@ Predictions are estimates, not guarantees.
             responseSchema: schema,
             maxOutputTokens: 700,
             temperature: 0.2
-          })
+          }
         }),
         signal: AbortSignal.timeout(25000)
       }
