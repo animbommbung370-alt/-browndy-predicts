@@ -121,11 +121,15 @@ export async function onRequest(context) {
       apiRequest(upcomingUrl, token),
       ...recentRequests
     ]);
-    // Process upcoming fixtures.
-    const upcomingResult = results[0];
-    const upcomingAvailable =
-      upcomingResult.status === "fulfilled";
-    let upcomingMatches = [];
+   // Process upcoming fixtures.
+const upcomingResult = results[0];
+const upcomingAvailable =
+  upcomingResult.status === "fulfilled";
+const upcomingError =
+  upcomingResult.status === "rejected"
+    ? upcomingResult.reason.message
+    : null;
+let upcomingMatches = [];
     if (upcomingAvailable) {
       const rawUpcoming =
         upcomingResult.value.matches || [];
@@ -175,7 +179,8 @@ export async function onRequest(context) {
       provider: "Football-Data.org",
       matches: upcomingMatches,
       recentMatches,
-      upcomingAvailable,
+      upcomingAvailable, 
+      upcomingError,
       recentResultsAvailable,
       statisticsAvailable: false,
       recentMatchesCount: recentMatches.length,
