@@ -84,7 +84,7 @@ function jsonResponse(data, status = 200) {
       "Content-Type": "application/json; charset=utf-8",
       "Cache-Control": "no-store",
       "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "POST, OPTIONS",
+      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type"
     }
   });
@@ -94,13 +94,13 @@ export async function onRequest(context) {
   if (context.request.method === "OPTIONS") {
     return jsonResponse({}, 204);
   }
-if (!["GET", "POST"].includes(context.request.method)) {
-  return jsonResponse({
-    success: false,
-    error: "Method not allowed."
-  }, 405);
-}
 
+  if (!["GET", "POST"].includes(context.request.method)) {
+    return jsonResponse({
+      success: false,
+      error: "Method not allowed."
+    }, 405);
+  }
 
   const token = context.env.FOOTBALL_DATA_TOKEN;
 
