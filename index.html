@@ -111,12 +111,8 @@ footer{max-width:980px;margin:auto;padding:0 16px 25px;color:var(--muted);font-s
       <input id="kickoff" type="datetime-local">
     </label>
   </div>
-  <p>
-    <button id="analyse" class="primary">Generate statistical prediction</button>
-  </p>
-  <p>
-    <button id="runAI">Run Gemini + Groq comparison</button>
-  </p>
+  <p><button id="analyse" class="primary">Generate statistical prediction</button></p>
+  <p><button id="runAI">Run Gemini + Groq comparison</button></p>
   <p id="analysisStatus" class="muted">Select a fixture or enter two teams.</p>
   <div id="prediction" class="results hidden"></div>
   <div id="geminiBox" class="ai-box hidden"></div>
@@ -159,16 +155,19 @@ footer{max-width:980px;margin:auto;padding:0 16px 25px;color:var(--muted);font-s
       <strong>MTN MoMo</strong>
     </div>
   </div>
-  <p class="notice">Payments, automatic verification and premium locking are not active. Do not send money through this screen.</p>
+  <p class="notice">Payments are handled through the account page. Payment verification is manual. Do not send money through this screen.</p>
 </div>
 </section>
 </main>
 <footer>Browndy Predicts • Predictions are estimates, not guarantees.</footer>
+<!-- Load account.js before the main app script. -->
+<script src="/account.js"></script>
 <script>
 "use strict";
 const $ = id => document.getElementById(id);
 const API = "/api/football";
 const STORAGE = "browndy_predictions_v2";
+const TOKEN_KEY = "browndy_customer_token";
 const AI_PROVIDERS = [
   {name:"Gemini",url:"/api/gemini"},
   {name:"Groq",url:"/api/groq"}
@@ -177,6 +176,28 @@ let matches = [];
 let recentMatches = [];
 let currentStatistical = null;
 let currentAIResults = [];
+/* Read the same login token used by account.js. */
+function getAuthToken(){
+  try{
+    return sessionStorage.getItem(TOKEN_KEY) ||
+      localStorage.getItem(TOKEN_KEY) ||
+      "";
+  }catch{
+    return "";
+  }
+}
+/* Add the Premium login token to protected API requests. */
+function authHeaders(extraHeaders={}){
+  const headers={
+    Accept:"application/json",
+    ...extraHeaders
+  };
+  const token=getAuthToken();
+  if(token){
+    headers.Authorization=`Bearer ${token}`;
+  }
+  return headers;
+}
 function safe(value){
   return String(value ?? "").replace(/[&<>"']/g,c=>({
     "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
@@ -266,17 +287,27 @@ function matchCard(match,index,selectable=true){
 async function loadMatches(){
   const button=$("reload");
   button.disabled=true;
-  $("feedStatus").textContent="Loading real fixtures and recent results...";
+  $("feedStatus").textContent="Loading fixtures...";
   $("matchesList").innerHTML="";
   $("recentList").innerHTML="";
   try{
     const response=await fetch(API,{
-      headers:{Accept:"application/json"},
-      cache:"no-store"
+      method:"GET",
+      headers:authHeaders(),
+      cache:"no-store",
+      credentials:"same-origin"
     });
     let data;
-    try{data=await response.json();}
-    catch{throw new Error("Football service returned an unreadable response.");}
+    try{
+      data=await response.json();
+    }catch{
+      throw new Error("Football service returned an unreadable response.");
+    }
+    if(response.status===401||response.status===403){
+      throw new Error(
+        "Your Premium login was not accepted. Open My Account, log in again, then tap Load matches."
+      );
+    }
     if(!response.ok||data.success===false){
       throw new Error(data.error||data.message||`Service error ${response.status}`);
     }
@@ -295,7 +326,7 @@ async function loadMatches(){
       :'<p class="muted">No completed results were returned.</p>';
   }catch(error){
     $("feedStatus").innerHTML=`<span class="error">${safe(error.message||"Could not load matches.")}</span>`;
-    $("matchesList").innerHTML='<p class="muted">Check the connection and try again.</p>';
+    $("matchesList").innerHTML='<p class="muted">Check your account and connection, then try again.</p>';
     $("recentList").innerHTML='<p class="muted">Recent results are unavailable.</p>';
   }finally{
     button.disabled=false;
@@ -613,22 +644,26 @@ function consensusPrediction(statistical,results){
 async function callAI(provider,payload){
   const response=await fetch(provider.url,{
     method:"POST",
-    headers:{"Content-Type":"application/json"},
+    headers:authHeaders({"Content-Type":"application/json"}),
+    credentials:"same-origin",
     body:JSON.stringify(payload),
     signal:AbortSignal.timeout(60000)
   });
   let data;
-  try{data=await response.json();}
-  catch{throw new Error("Unreadable response");}
+  try{
+    data=await response.json();
+  }catch{
+    throw new Error("Unreadable response");
+  }
+  if(response.status===401||response.status===403){
+    throw new Error("Premium login was not accepted. Log in again through My Account.");
+  }
   if(!response.ok||data.success===false){
     throw new Error(data.error||`HTTP ${response.status}`);
   }
   const prediction=extractPrediction(data);
   if(!prediction)throw new Error("No usable prediction returned.");
-  return {
-    name:provider.name,
-    prediction
-  };
+  return {name:provider.name,prediction};
 }
 function savePrediction(statistical,aiResults,finalPrediction){
   const home=statistical.home;
@@ -707,6 +742,10 @@ $("analyse").addEventListener("click",()=>{
 $("runAI").addEventListener("click",async()=>{
   if(!currentStatistical){
     alert("Generate a statistical prediction first.");
+    return;
+  }
+  if(!getAuthToken()){
+    alert("Please log in through My Account before using AI analysis.");
     return;
   }
   const approved=confirm(
@@ -980,6 +1019,5 @@ document.querySelectorAll("[data-tab]").forEach(button=>{
 renderHistory();
 loadMatches();
 </script>
-  <script src="/account.js"></script>
 </body>
-</html>.     
+</html>
