@@ -30,6 +30,7 @@
   }
 
   const style = document.createElement("style");
+
   style.textContent = `
     #bp-account-button {
       position: fixed;
@@ -45,6 +46,7 @@
       cursor: pointer;
       box-shadow: 0 5px 20px #0008;
     }
+
     #bp-account-overlay {
       display: none;
       position: fixed;
@@ -54,6 +56,7 @@
       padding: 18px;
       overflow-y: auto;
     }
+
     #bp-account-box {
       max-width: 430px;
       margin: 35px auto;
@@ -64,7 +67,11 @@
       border: 1px solid #315b47;
       font-family: Arial, sans-serif;
     }
-    #bp-account-box h2 { margin-top: 0; }
+
+    #bp-account-box h2 {
+      margin-top: 0;
+    }
+
     #bp-account-box input {
       box-sizing: border-box;
       width: 100%;
@@ -75,6 +82,7 @@
       background: #071a14;
       color: white;
     }
+
     #bp-account-box button {
       padding: 12px 15px;
       margin: 5px 4px 5px 0;
@@ -83,19 +91,30 @@
       cursor: pointer;
       font-weight: bold;
     }
-    .bp-main-button { background: #20b879; color: #061a12; }
-    .bp-close-button { background: #294538; color: white; }
+
+    .bp-main-button {
+      background: #20b879;
+      color: #061a12;
+    }
+
+    .bp-close-button {
+      background: #294538;
+      color: white;
+    }
+
     #bp-account-message {
       margin: 12px 0;
       line-height: 1.5;
       overflow-wrap: anywhere;
     }
+
     .bp-account-section {
       border-top: 1px solid #315b47;
       padding-top: 15px;
       margin-top: 15px;
     }
   `;
+
   document.head.appendChild(style);
 
   const button = document.createElement("button");
@@ -105,33 +124,56 @@
 
   const overlay = document.createElement("div");
   overlay.id = "bp-account-overlay";
+
   overlay.innerHTML = `
     <div id="bp-account-box">
+
       <h2>Browndy Predicts Account</h2>
-      <div id="bp-account-message">Create an account or log in.</div>
+
+      <div id="bp-account-message">
+        Create an account or log in.
+      </div>
 
       <div id="bp-account-auth">
+
         <label>Phone number</label>
         <input id="bp-phone" type="tel" placeholder="Your phone number">
 
         <label>Password</label>
-        <input id="bp-password" type="password"
-          placeholder="At least 8 characters">
+        <input
+          id="bp-password"
+          type="password"
+          placeholder="At least 8 characters"
+        >
 
-        <button class="bp-main-button" id="bp-register">Create account</button>
-        <button class="bp-main-button" id="bp-login">Log in</button>
+        <button class="bp-main-button" id="bp-register">
+          Create account
+        </button>
+
+        <button class="bp-main-button" id="bp-login">
+          Log in
+        </button>
+
       </div>
 
       <div id="bp-account-logged" style="display:none">
+
         <p id="bp-account-details"></p>
+
         <p id="bp-premium-status"></p>
 
-        <div class="bp-account-section">
+        <div class="bp-account-section" id="bp-payment-section">
+
           <h3>Activate Premium</h3>
+
           <p>Monthly subscription: <strong>5,000 FCFA</strong></p>
+
           <p>Send payment by MTN Mobile Money to:</p>
-          <p><strong>680090335</strong><br>
-          Recipient: <strong>Animbom Browndy Mbung</strong></p>
+
+          <p>
+            <strong>680090335</strong><br>
+            Recipient: <strong>Animbom Browndy Mbung</strong>
+          </p>
 
           <label>Name used for payment</label>
           <input id="bp-payment-name" placeholder="Your payment name">
@@ -142,14 +184,22 @@
           <button class="bp-main-button" id="bp-submit-payment">
             Submit payment for verification
           </button>
+
         </div>
 
-        <button class="bp-close-button" id="bp-logout">Log out</button>
+        <button class="bp-close-button" id="bp-logout">
+          Log out
+        </button>
+
       </div>
 
-      <button class="bp-close-button" id="bp-close">Close</button>
+      <button class="bp-close-button" id="bp-close">
+        Close
+      </button>
+
     </div>
   `;
+
   document.body.appendChild(overlay);
 
   const message = text => {
@@ -165,18 +215,39 @@
     document.getElementById("bp-account-details").textContent =
       "Logged in as: " + data.customer.phone_number;
 
-    document.getElementById("bp-premium-status").textContent =
-      data.premium_active
-        ? "Premium is ACTIVE until " + data.premium_until
-        : "Premium is not active yet. Submit payment details for verification.";
+    const paymentSection =
+      document.getElementById("bp-payment-section");
+
+    const premiumStatus =
+      document.getElementById("bp-premium-status");
+
+    if (data.premium_active === true) {
+      premiumStatus.textContent =
+        "✅ Premium ACTIVE until " + data.premium_until;
+
+      paymentSection.style.display = "none";
+    } else {
+      premiumStatus.textContent =
+        "Premium is not active. Submit payment details for verification.";
+
+      paymentSection.style.display = "block";
+    }
 
     message("Your account is ready.");
   }
 
   async function authenticate(action) {
     try {
-      const phone = document.getElementById("bp-phone").value.trim();
-      const password = document.getElementById("bp-password").value;
+      const phone =
+        document.getElementById("bp-phone").value.trim();
+
+      const password =
+        document.getElementById("bp-password").value;
+
+      if (!phone || !password) {
+        message("Enter your phone number and password.");
+        return;
+      }
 
       message("Please wait...");
 
@@ -190,6 +261,7 @@
       });
 
       sessionStorage.setItem(TOKEN_KEY, data.token);
+
       await refreshAccount();
 
     } catch (error) {
@@ -205,13 +277,16 @@
         await refreshAccount();
       } catch (error) {
         sessionStorage.removeItem(TOKEN_KEY);
+
         document.getElementById("bp-account-auth").style.display = "block";
         document.getElementById("bp-account-logged").style.display = "none";
+
         message("Please log in again.");
       }
     } else {
       document.getElementById("bp-account-auth").style.display = "block";
       document.getElementById("bp-account-logged").style.display = "none";
+
       message("Create an account or log in.");
     }
   });
@@ -226,6 +301,7 @@
     try {
       const customerName =
         document.getElementById("bp-payment-name").value.trim();
+
       const transactionId =
         document.getElementById("bp-transaction-id").value.trim();
 
@@ -244,7 +320,9 @@
         })
       });
 
-      message(data.message || "Payment submitted for verification.");
+      message(
+        data.message || "Payment submitted for verification."
+      );
 
     } catch (error) {
       message(error.message);
@@ -262,12 +340,15 @@
     }
 
     sessionStorage.removeItem(TOKEN_KEY);
+
     document.getElementById("bp-account-auth").style.display = "block";
     document.getElementById("bp-account-logged").style.display = "none";
+
     message("You have logged out.");
   };
 
   document.getElementById("bp-close").onclick = () => {
     overlay.style.display = "none";
   };
+
 })();
