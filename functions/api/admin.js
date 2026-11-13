@@ -105,7 +105,38 @@ export async function onRequestPost({ request, env }) {
     return json({ error: "Unable to process this request." }, 500);
   }
 }
+export async function onRequestGet({ request, env }) {
+  try {
+    if (!env.DB || !env.ADMIN_SECRET) {
+      return json({ error: "Server configuration is incomplete." }, 500);
+    }
 
+    const auth = request.headers.get("Authorization") || "";
+    const suppliedSecret = auth.startsWith("Bearer ")
+      ? auth.slice(7)
+      : "";
+
+    if (suppliedSecret !== env.ADMIN_SECRET) {
+      return json({ error: "Unauthorized." }, 401);
+    }
+
+    const result = await env.DB.prepare(`
+      SELECT id, customer_name, phone_number,
+             transaction_id, status, user_id
+      FROM payment_requests
+      WHERE status = 'pending'
+      ORDER BY id DESC
+    `).all();
+
+    return json({
+      success: true,
+      payments: result.results || []
+    });
+
+  } catch (error) {
+    return json({ error: "Unable to load payment requests." }, 500);
+  }
+}
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
