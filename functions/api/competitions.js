@@ -1,4 +1,4 @@
-import { requirePremium } from "./_premium.js";
+import { requirePremium } from "./premium.js";
 
 const API_BASE = "https://api.football-data.org/v4";
 
