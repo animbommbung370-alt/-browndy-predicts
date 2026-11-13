@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="110" fill="#071a14"/>
+  <circle cx="256" cy="256" r="174" fill="#8df0ad"/>
+  <circle cx="256" cy="256" r="105" fill="#071a14"/>
+  <path d="M256 151l57 41-22 67h-70l-22-67z" fill="#8df0ad"/>
+  <path d="M151 256l70-22 22 67-57 41zM361 256l-70-22-22 67 57 41z" fill="#8df0ad"/>
+  <text x="256" y="445" text-anchor="middle"
+        font-family="Arial,sans-serif" font-size="38"
+        font-weight="bold" fill="#8df0ad">BROWNDY</text>
+</svg>
