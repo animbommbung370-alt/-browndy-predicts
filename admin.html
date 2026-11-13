@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Browndy Predicts — Admin</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 20px;
+      background: #07130e;
+      color: #fff;
+      font-family: Arial, sans-serif;
+    }
+    main {
+      max-width: 650px;
+      margin: 30px auto;
+    }
+    h1 { color: #55e39a; }
+    input, button {
+      box-sizing: border-box;
+      width: 100%;
+      padding: 14px;
+      margin: 7px 0;
+      border-radius: 8px;
+      border: 1px solid #456253;
+      font-size: 16px;
+    }
+    input { background: #10251a; color: white; }
+    button {
+      background: #35c879;
+      color: #06150d;
+      border: 0;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    button.reject { background: #d95353; color: white; }
+    .card {
+      background: #10251a;
+      border: 1px solid #315640;
+      border-radius: 12px;
+      padding: 16px;
+      margin: 14px 0;
+      overflow-wrap: anywhere;
+    }
+    .actions { display: flex; gap: 10px; }
+    .actions button { flex: 1; }
+    #message { margin: 14px 0; color: #ffd477; }
+    .muted { color: #b5c8bc; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Browndy Predicts</h1>
+  <h2>Admin Dashboard</h2>
+  <p class="muted">Review and process pending payment requests.</p>
+
+Admin secret
+Load pending payments
+
+  <p id="message" role="status" aria-live="polite"></p>
+  <section id="payments"></section>
+</main>
+<script>
+  const secretInput = document.getElementById("secret");
+  const message = document.getElementById("message");
+  const paymentsBox = document.getElementById("payments");
+  const loadButton = document.getElementById("load");
+  function showMessage(text) {
+    message.textContent = text;
+  }
+  async function apiRequest(method, body) {
+    const secret = secretInput.value.trim();
+    if (!secret) throw new Error("Enter your admin secret first.");
+    const response = await fetch("/api/admin", {
+      method,
+      headers: {
+        "Authorization": "Bearer " + secret,
+        ...(body ? { "Content-Type": "application/json" } : {})
+      },
+      ...(body ? { body: JSON.stringify(body) } : {})
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "Request failed.");
+    return data;
+  }
+  function makeText(label, value) {
+    const p = document.createElement("p");
+    const strong = document.createElement("strong");
+    strong.textContent = label + ": ";
+    p.append(strong, document.createTextNode(value || "—"));
+    return p;
+  }
+  async function loadPayments() {
+    paymentsBox.replaceChildren();
+    showMessage("Loading payment requests...");
+    try {
+      const data = await apiRequest("GET");
+      paymentsBox.replaceChildren();
+      if (!data.payments || data.payments.length === 0) {
+        showMessage("There are no pending payment requests.");
+        return;
+      }
+      showMessage(data.payments.length + " pending request(s) found.");
+      data.payments.forEach(payment => {
+        const card = document.createElement("article");
+        card.className = "card";
+        card.append(
+          makeText("Customer", payment.customer_name),
+          makeText("Phone", payment.phone_number),
+          makeText("Transaction ID", payment.transaction_id),
+          makeText("Status", payment.status)
+        );
+        const actions = document.createElement("div");
+        actions.className = "actions";
+        const approve = document.createElement("button");
+        approve.textContent = "Approve";
+        const reject = document.createElement("button");
+        reject.textContent = "Reject";
+        reject.className = "reject";
+        approve.addEventListener("click", () =>
+          processPayment(payment.transaction_id, "approve")
+        );
+        reject.addEventListener("click", () =>
+          processPayment(payment.transaction_id, "reject")
+        );
+        actions.append(approve, reject);
+        card.append(actions);
+        paymentsBox.append(card);
+      });
+    } catch (error) {
+      showMessage(error.message);
+    }
+  }
+  async function processPayment(transactionId, action) {
+    const confirmed = confirm(
+      action === "approve"
+        ? "Have you independently verified that this MTN payment was received? Approve this payment?"
+        : "Reject this payment request?"
+    );
+    if (!confirmed) return;
+    showMessage("Processing...");
+    try {
+      const data = await apiRequest("POST", {
+        transaction_id: transactionId,
+        action
+      });
+      showMessage(
+        action === "approve"
+          ? "Payment approved. Premium expiry: " + data.premium_until
+          : "Payment rejected."
+      );
+      await loadPayments();
+    } catch (error) {
+      showMessage(error.message);
+    }
+  }
+  loadButton.addEventListener("click", loadPayments);
+</script>
+</body>
+</html>
