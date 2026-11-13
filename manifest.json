@@ -1,0 +1,20 @@
+{
+  "id": "/",
+  "name": "Browndy Predicts",
+  "short_name": "Browndy",
+  "description": "Football fixtures, statistical predictions and AI match analysis.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#071a14",
+  "theme_color": "#071a14",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
