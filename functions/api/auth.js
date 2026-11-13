@@ -204,9 +204,8 @@ export async function onRequestPost({ request, env }) {
     console.error("Authentication error:", error);
 
     return json({
-      error: "Account request failed.",
-      diagnostic: String(error?.message || error)
-    }, 500);
+  error: "Account request failed: " + String(error?.message || error)
+}, 500);
   }
 }
 
