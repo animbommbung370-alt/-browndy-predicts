@@ -1,6 +1,4 @@
-import { requirePremium } from "./_premium.js";
-
-const API_BASE = "https://api.football-data.org/v4";
+import { requirePremium } from "./premium.js";const API_BASE = "https://api.football-data.org/v4";
 
 async function apiRequest(url, token) {
   const controller = new AbortController();
