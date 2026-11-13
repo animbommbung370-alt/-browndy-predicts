@@ -1,37 +1,51 @@
+import { requirePremium } from "./_premium.js";
+
 const API_BASE = "https://api.football-data.org/v4";
 
+function jsonResponse(data, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: {
+      "Content-Type": "application/json; charset=utf-8",
+      "Cache-Control": "no-store",
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization"
+    }
+  });
+}
+
 export async function onRequest(context) {
-  if (context.request.method === "OPTIONS") {
-    return new Response(null, {
-      status: 204,
-      headers: {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "GET, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type"
-      }
-    });
+  const { request, env } = context;
+
+  if (request.method === "OPTIONS") {
+    return jsonResponse({}, 204);
   }
 
-  const headers = {
-    "Content-Type": "application/json",
-    "Cache-Control": "no-store",
-    "Access-Control-Allow-Origin": "*"
-  };
-
-  if (context.request.method !== "GET") {
-    return new Response(JSON.stringify({
+  if (request.method !== "GET") {
+    return jsonResponse({
       success: false,
       error: "Method not allowed."
-    }), { status: 405, headers });
+    }, 405);
   }
 
-  const token = context.env.FOOTBALL_DATA_TOKEN;
+  // Require an active Premium subscription.
+  const access = await requirePremium(request, env);
+
+  if (!access.allowed) {
+    return jsonResponse({
+      success: false,
+      error: access.error
+    }, access.status);
+  }
+
+  const token = env.FOOTBALL_DATA_TOKEN;
 
   if (!token) {
-    return new Response(JSON.stringify({
+    return jsonResponse({
       success: false,
       error: "Football API token is missing."
-    }), { status: 500, headers });
+    }, 500);
   }
 
   try {
@@ -45,13 +59,22 @@ export async function onRequest(context) {
       }
     );
 
-    const data = await response.json();
+    let data;
+
+    try {
+      data = await response.json();
+    } catch {
+      return jsonResponse({
+        success: false,
+        error: "Invalid response from football API."
+      }, 502);
+    }
 
     if (!response.ok) {
-      return new Response(JSON.stringify({
+      return jsonResponse({
         success: false,
         error: data.message || "Could not load competitions."
-      }), { status: response.status, headers });
+      }, response.status);
     }
 
     const competitions = (data.competitions || []).map(item => ({
@@ -62,16 +85,16 @@ export async function onRequest(context) {
       area: item.area?.name || "Unknown"
     }));
 
-    return new Response(JSON.stringify({
+    return jsonResponse({
       success: true,
       count: competitions.length,
       competitions
-    }), { status: 200, headers });
+    });
 
   } catch (error) {
-    return new Response(JSON.stringify({
+    return jsonResponse({
       success: false,
       error: error.message || "Connection failed."
-    }), { status: 500, headers });
+    }, 500);
   }
 }
