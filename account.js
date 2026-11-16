@@ -142,11 +142,8 @@
         <input id="bp-phone" type="tel" placeholder="Your phone number">
 
         <label>Password</label>
-        <input
-          id="bp-password"
-          type="password"
-          placeholder="At least 8 characters"
-        >
+        <input id="bp-password" type="password"
+          placeholder="At least 8 characters">
 
         <button class="bp-main-button" id="bp-register">
           Create account
@@ -161,7 +158,6 @@
       <div id="bp-account-logged" style="display:none">
 
         <p id="bp-account-details"></p>
-
         <p id="bp-premium-status"></p>
 
         <div class="bp-account-section" id="bp-payment-section">
@@ -236,6 +232,14 @@
     }
 
     message("Your account is ready.");
+
+    return data;
+  }
+
+  function openPredictions() {
+    clearInterval(paymentCheckTimer);
+    overlay.style.display = "none";
+    window.location.reload();
   }
 
   function checkPaymentStatus(transactionId) {
@@ -259,13 +263,14 @@
 
           await refreshAccount();
 
-          message("🎉 Payment approved! Your Premium is now active.");
+          message("🎉 Payment approved! Opening Premium predictions...");
+
+          setTimeout(openPredictions, 1500);
           return;
         }
 
         if (data.status === "rejected") {
           clearInterval(paymentCheckTimer);
-
           message("Payment rejected. Please contact support.");
           return;
         }
@@ -276,10 +281,7 @@
 
       if (attempts >= 30) {
         clearInterval(paymentCheckTimer);
-
-        message(
-          "Still awaiting approval. Open your account later to check."
-        );
+        message("Still awaiting approval. Open your account later to check.");
       }
 
     }, 10000);
@@ -311,7 +313,13 @@
 
       sessionStorage.setItem(TOKEN_KEY, data.token);
 
-      await refreshAccount();
+      const account = await refreshAccount();
+
+      if (account.premium_active === true) {
+        message("Premium active! Opening predictions...");
+
+        setTimeout(openPredictions, 1000);
+      }
 
     } catch (error) {
       message(error.message);
