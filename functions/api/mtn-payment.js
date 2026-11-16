@@ -15,7 +15,7 @@ async function getCustomer(request, env) {
     .map(b => b.toString(16).padStart(2, "0"))
     .join("");
 
-  return await env.DB.prepare(`
+  return env.DB.prepare(`
     SELECT c.id, c.phone_number
     FROM customer_sessions s
     JOIN customers c ON c.id = s.customer_id
@@ -37,12 +37,18 @@ function json(data, status = 200) {
 
 function normalizePhone(value) {
   const phone = String(value || "").replace(/\D/g, "");
-
-  const msisdn = phone.startsWith("237")
-    ? phone
-    : "237" + phone;
+  const msisdn = phone.startsWith("237") ? phone : "237" + phone;
 
   return /^2376\d{8}$/.test(msisdn) ? msisdn : null;
+}
+
+function checkConfiguration(env) {
+  return Boolean(
+    env.DB &&
+    env.MTN_SUBSCRIPTION_KEY &&
+    env.MTN_API_USER_ID &&
+    env.MTN_API_KEY
+  );
 }
 
 async function getMtnToken(env) {
@@ -67,25 +73,13 @@ async function getMtnToken(env) {
   }
 
   const data = await response.json();
-
   return data.access_token;
-}
-
-function checkConfiguration(env) {
-  return Boolean(
-    env.DB &&
-    env.MTN_SUBSCRIPTION_KEY &&
-    env.MTN_API_USER_ID &&
-    env.MTN_API_KEY
-  );
 }
 
 export async function onRequestPost({ request, env }) {
   try {
     if (!checkConfiguration(env)) {
-      return json({
-        error: "Payment system configuration is incomplete."
-      }, 500);
+      return json({ error: "Payment configuration is incomplete." }, 500);
     }
 
     const customer = await getCustomer(request, env);
@@ -95,7 +89,6 @@ export async function onRequestPost({ request, env }) {
     }
 
     const body = await request.json();
-
     const msisdn = normalizePhone(
       body.phoneNumber || customer.phone_number
     );
@@ -109,7 +102,6 @@ export async function onRequestPost({ request, env }) {
     const accessToken = await getMtnToken(env);
     const referenceId = crypto.randomUUID();
 
-    // Save the payment request before asking MTN to collect payment.
     await env.DB.prepare(`
       INSERT INTO payment_requests (
         customer_name,
@@ -192,7 +184,7 @@ export async function onRequestPost({ request, env }) {
 export async function onRequestGet({ request, env }) {
   try {
     if (!checkConfiguration(env)) {
-      return json({ error: "Payment system configuration is incomplete." }, 500);
+      return json({ error: "Payment configuration is incomplete." }, 500);
     }
 
     const customer = await getCustomer(request, env);
@@ -209,7 +201,7 @@ export async function onRequestGet({ request, env }) {
     }
 
     const payment = await env.DB.prepare(`
-      SELECT id, mtn_reference, status, provider_status, user_id
+      SELECT id, provider_status, premium_granted_at
       FROM payment_requests
       WHERE mtn_reference = ?
         AND user_id = ?
@@ -220,22 +212,11 @@ export async function onRequestGet({ request, env }) {
       return json({ error: "Payment not found." }, 404);
     }
 
-    if (payment.provider_status === "SUCCESSFUL") {
+    if (payment.premium_granted_at) {
       return json({
         success: true,
         status: "SUCCESSFUL",
         premium_active: true
-      });
-    }
-
-    if (
-      payment.provider_status === "FAILED" ||
-      payment.provider_status === "REJECTED"
-    ) {
-      return json({
-        success: true,
-        status: payment.provider_status,
-        premium_active: false
       });
     }
 
@@ -263,6 +244,7 @@ export async function onRequestGet({ request, env }) {
     const status = String(result.status || "").toUpperCase();
 
     if (status === "SUCCESSFUL") {
+      const grantMarker = `${Date.now()}-${crypto.randomUUID()}`;
       const now = new Date().toISOString();
 
       await env.DB.batch([
@@ -271,10 +253,11 @@ export async function onRequestGet({ request, env }) {
           SET provider_status = 'SUCCESSFUL',
               status = 'approved',
               approved_at = ?,
-              expires_at = datetime('now', '+30 days')
+              expires_at = datetime('now', '+30 days'),
+              premium_granted_at = ?
           WHERE id = ?
-            AND provider_status != 'SUCCESSFUL'
-        `).bind(now, payment.id),
+            AND premium_granted_at IS NULL
+        `).bind(now, grantMarker, payment.id),
 
         env.DB.prepare(`
           UPDATE customers
@@ -288,7 +271,13 @@ export async function onRequestGet({ request, env }) {
             '+30 days'
           )
           WHERE id = ?
-        `).bind(customer.id)
+            AND EXISTS (
+              SELECT 1
+              FROM payment_requests
+              WHERE id = ?
+                AND premium_granted_at = ?
+            )
+        `).bind(customer.id, payment.id, grantMarker)
       ]);
 
       return json({
@@ -304,13 +293,17 @@ export async function onRequestGet({ request, env }) {
         SET provider_status = 'FAILED',
             status = 'rejected'
         WHERE id = ?
-      `).bind(payment.id);
+          AND premium_granted_at IS NULL
+          AND provider_status != 'SUCCESSFUL'
+      `).bind(payment.id).run();
     } else {
       await env.DB.prepare(`
         UPDATE payment_requests
         SET provider_status = ?
         WHERE id = ?
-      `).bind(status || "PENDING", payment.id);
+          AND premium_granted_at IS NULL
+          AND provider_status != 'SUCCESSFUL'
+      `).bind(status || "PENDING", payment.id).run();
     }
 
     return json({
