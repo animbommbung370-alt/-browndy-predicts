@@ -2,6 +2,8 @@
   const API = "/api";
   const TOKEN_KEY = "browndy_customer_token";
 
+  let paymentCheckTimer = null;
+
   const getToken = () => sessionStorage.getItem(TOKEN_KEY);
 
   async function apiRequest(url, options = {}) {
@@ -236,6 +238,53 @@
     message("Your account is ready.");
   }
 
+  function checkPaymentStatus(transactionId) {
+    clearInterval(paymentCheckTimer);
+
+    let attempts = 0;
+
+    message("Payment submitted. Waiting for admin approval...");
+
+    paymentCheckTimer = setInterval(async () => {
+      attempts++;
+
+      try {
+        const data = await apiRequest(
+          "/payments?transaction_id=" +
+          encodeURIComponent(transactionId)
+        );
+
+        if (data.status === "approved") {
+          clearInterval(paymentCheckTimer);
+
+          await refreshAccount();
+
+          message("🎉 Payment approved! Your Premium is now active.");
+          return;
+        }
+
+        if (data.status === "rejected") {
+          clearInterval(paymentCheckTimer);
+
+          message("Payment rejected. Please contact support.");
+          return;
+        }
+
+      } catch (error) {
+        console.log("Payment status check:", error.message);
+      }
+
+      if (attempts >= 30) {
+        clearInterval(paymentCheckTimer);
+
+        message(
+          "Still awaiting approval. Open your account later to check."
+        );
+      }
+
+    }, 10000);
+  }
+
   async function authenticate(action) {
     try {
       const phone =
@@ -324,12 +373,16 @@
         data.message || "Payment submitted for verification."
       );
 
+      checkPaymentStatus(transactionId);
+
     } catch (error) {
       message(error.message);
     }
   };
 
   document.getElementById("bp-logout").onclick = async () => {
+    clearInterval(paymentCheckTimer);
+
     try {
       await apiRequest("/auth", {
         method: "POST",
