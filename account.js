@@ -3,8 +3,6 @@
     const API = "/api";
     const TOKEN_KEY = "browndy_customer_token";
 
-    let paymentCheckTimer = null;
-
     const getToken = () => sessionStorage.getItem(TOKEN_KEY);
 
     async function apiRequest(url, options = {}) {
@@ -160,20 +158,29 @@
 
           <div class="bp-account-section" id="bp-payment-section">
             <h3>Activate Premium</h3>
-            <p>Monthly subscription: <strong>5,000 FCFA</strong></p>
-            <p>Pay securely using MTN Mobile Money.</p>
 
-            <label>MTN Mobile Money number</label>
-            <input id="bp-mtn-phone" type="tel"
-              placeholder="Example: 670000000">
+            <p>Monthly subscription: <strong>5,000 FCFA</strong></p>
+
+            <p>
+              Pay 5,000 FCFA using MTN Mobile Money.
+              Then enter your payment details below.
+            </p>
+
+            <label>Your full name</label>
+            <input id="bp-payment-name" type="text"
+              placeholder="Enter your full name">
+
+            <label>MTN transaction ID</label>
+            <input id="bp-transaction-id" type="text"
+              placeholder="Enter your transaction ID">
 
             <button class="bp-main-button" id="bp-submit-payment">
-              Pay 5,000 FCFA
+              Submit Payment for Approval
             </button>
 
             <p>
-              You will receive a payment request on your MTN phone.
-              Approve it only if the amount is 5,000 FCFA.
+              Your payment will be checked manually.
+              Premium will be activated after approval.
             </p>
           </div>
 
@@ -224,75 +231,8 @@
     }
 
     function openPredictions() {
-      clearInterval(paymentCheckTimer);
       overlay.style.display = "none";
       window.location.reload();
-    }
-
-    function checkPaymentStatus(referenceId) {
-      clearInterval(paymentCheckTimer);
-
-      let attempts = 0;
-
-      message(
-        "Payment request sent. Please check your MTN phone and approve the request."
-      );
-
-      paymentCheckTimer = setInterval(async () => {
-        attempts++;
-
-        try {
-          const data = await apiRequest(
-            "/mtn-payment?reference_id=" +
-            encodeURIComponent(referenceId)
-          );
-
-          if (data.status === "SUCCESSFUL") {
-            clearInterval(paymentCheckTimer);
-
-            const account = await refreshAccount();
-
-            if (account.premium_active === true) {
-              message(
-                "Payment confirmed! Your Premium subscription is active."
-              );
-
-              setTimeout(openPredictions, 2000);
-            } else {
-              message(
-                "Payment confirmed. Please refresh your account to check Premium status."
-              );
-            }
-
-            return;
-          }
-
-          if (
-            data.status === "FAILED" ||
-            data.status === "REJECTED"
-          ) {
-            clearInterval(paymentCheckTimer);
-
-            message("Payment was not completed. Please try again.");
-            return;
-          }
-
-          message(
-            "Waiting for MTN payment confirmation. Please approve the request on your phone."
-          );
-
-        } catch (error) {
-          console.log("Payment status check:", error.message);
-        }
-
-        if (attempts >= 36) {
-          clearInterval(paymentCheckTimer);
-
-          message(
-            "We are still waiting for MTN. Open your account later and check again."
-          );
-        }
-      }, 5000);
     }
 
     async function authenticate(action) {
@@ -366,33 +306,34 @@
         document.getElementById("bp-submit-payment");
 
       try {
-        const phoneNumber =
-          document.getElementById("bp-mtn-phone").value.trim();
+        const customerName =
+          document.getElementById("bp-payment-name").value.trim();
 
-        if (!phoneNumber) {
-          message("Enter your MTN Mobile Money number.");
+        const transactionId =
+          document.getElementById("bp-transaction-id").value.trim();
+
+        if (!customerName || !transactionId) {
+          message("Enter your full name and MTN transaction ID.");
           return;
         }
 
         payButton.disabled = true;
-        message("Connecting to MTN. Please wait.");
+        message("Submitting your payment details...");
 
-        const data = await apiRequest("/mtn-payment", {
+        await apiRequest("/payments", {
           method: "POST",
           body: JSON.stringify({
-            phoneNumber
+            customer_name: customerName,
+            transaction_id: transactionId
           })
         });
 
-        if (!data.success || !data.referenceId) {
-          throw new Error("MTN payment request could not be started.");
-        }
-
         message(
-          "Payment request sent. Approve 5,000 FCFA on your MTN phone."
+          "Payment submitted successfully. Your payment is PENDING manual approval. Premium will activate after approval."
         );
 
-        checkPaymentStatus(data.referenceId);
+        document.getElementById("bp-payment-name").value = "";
+        document.getElementById("bp-transaction-id").value = "";
 
       } catch (error) {
         message(error.message);
@@ -402,8 +343,6 @@
     };
 
     document.getElementById("bp-logout").onclick = async () => {
-      clearInterval(paymentCheckTimer);
-
       try {
         await apiRequest("/auth", {
           method: "POST",
