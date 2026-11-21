@@ -1,4 +1,6 @@
-import { requirePremium } from "./premium.js";const API_BASE = "https://api.football-data.org/v4";
+import { requirePremium } from "./premium.js";
+
+const API_BASE = "https://api.football-data.org/v4";
 
 async function apiRequest(url, token) {
   const controller = new AbortController();
@@ -14,6 +16,7 @@ async function apiRequest(url, token) {
     });
 
     let parsed;
+
     try {
       parsed = await response.json();
     } catch {
@@ -29,6 +32,7 @@ async function apiRequest(url, token) {
     if (error.name === "AbortError") {
       throw new Error("Football API request timed out");
     }
+
     throw error;
   } finally {
     clearTimeout(timeout);
@@ -88,7 +92,14 @@ export async function onRequest(context) {
   const { request, env } = context;
 
   if (request.method === "OPTIONS") {
-    return jsonResponse({}, 204);
+    return new Response(null, {
+      status: 204,
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization"
+      }
+    });
   }
 
   if (!["GET", "POST"].includes(request.method)) {
@@ -98,13 +109,17 @@ export async function onRequest(context) {
     }, 405);
   }
 
-  const access = await requirePremium(request, env);
+  // Viewing football fixtures is public.
+  // Only POST requests require Premium authentication.
+  if (request.method === "POST") {
+    const access = await requirePremium(request, env);
 
-  if (!access.allowed) {
-    return jsonResponse({
-      success: false,
-      error: access.error
-    }, access.status);
+    if (!access.allowed) {
+      return jsonResponse({
+        success: false,
+        error: access.error
+      }, access.status);
+    }
   }
 
   const token = env.FOOTBALL_DATA_TOKEN;
@@ -133,6 +148,7 @@ export async function onRequest(context) {
     const upcomingRequests = upcomingRanges.map(range => {
       const url =
         `${API_BASE}/matches?dateFrom=${range.from}&dateTo=${range.to}`;
+
       return apiRequest(url, token);
     });
 
@@ -153,6 +169,7 @@ export async function onRequest(context) {
     const recentRequests = recentRanges.map(range => {
       const url =
         `${API_BASE}/matches?dateFrom=${range.from}&dateTo=${range.to}&status=FINISHED`;
+
       return apiRequest(url, token);
     });
 
@@ -194,6 +211,7 @@ export async function onRequest(context) {
       .filter(result => result.status === "fulfilled");
 
     const recentResultsAvailable = successfulRecentResults.length > 0;
+
     let recentMatches = [];
 
     for (const result of successfulRecentResults) {
@@ -238,6 +256,7 @@ export async function onRequest(context) {
         : "Recent results could not be loaded. Please check your API plan and try again.",
       updatedAt: new Date().toISOString()
     });
+
   } catch (error) {
     return jsonResponse({
       success: false,
