@@ -1,4 +1,5 @@
 <!doctype html>
+
 <html lang="en">
 <head>
 <meta name="google-site-verification" content="xHO8_WL3RPFVmOZmPH5ZhcN1aYIMPXCeH7LnEXp_jGk">
@@ -85,7 +86,9 @@ footer{max-width:1050px;margin:auto;padding:0 16px 30px;color:var(--muted);font-
     <span class="hero-label">WELCOME TO BROWNDY PREDICTS</span>
     <h1>SEE THE GAME <span>DIFFERENTLY.</span></h1>
     <p class="hero-description">Football intelligence meets match analysis. Explore upcoming fixtures, statistical predictions, AI-powered insights and match markets — all in one place.</p>
-    <div class="hero-buttons"><button id="shareAppBtn" class="primary" type="button">📲 Share Browndy Predicts</button></div>
+    <div class="hero-buttons">
+      <button id="shareAppBtn" class="primary" type="button">📲 Share Browndy Predicts</button>
+    </div>
   </div>
 </header>
 <main>
@@ -98,11 +101,19 @@ footer{max-width:1050px;margin:auto;padding:0 16px 30px;color:var(--muted);font-
 <section id="matches" class="tabpage">
 <div class="layout">
 <div class="card">
-  <div class="row"><div><h2>Upcoming fixtures</h2><p class="section-intro">Explore matches and select one for analysis.</p></div><button id="reload" class="primary" type="button">Load matches</button></div>
+  <div class="row">
+    <div>
+      <h2>Upcoming fixtures</h2>
+      <p class="section-intro">Explore matches and select one for analysis.</p>
+    </div>
+    <button id="reload" class="primary" type="button">Load matches</button>
+  </div>
   <p id="feedStatus" class="muted">Loading fixtures...</p>
   <div id="matchesList" class="matches"></div>
   <h2 style="margin-top:25px">Recent completed results</h2>
-  <div id="recentList" class="matches"><p class="muted">Loading recent results...</p></div>
+  <div id="recentList" class="matches">
+    <p class="muted">Loading recent results...</p>
+  </div>
 </div>
 <div class="card">
   <h2>Analyse a match</h2>
@@ -135,7 +146,10 @@ footer{max-width:1050px;margin:auto;padding:0 16px 30px;color:var(--muted);font-
 </section>
 <section id="history" class="tabpage hidden">
 <div class="card">
-  <div class="row"><h2>Prediction history</h2><button id="clearHistory" type="button">Clear history</button></div>
+  <div class="row">
+    <h2>Prediction history</h2>
+    <button id="clearHistory" type="button">Clear history</button>
+  </div>
   <div class="results" id="historyStats"></div>
   <p class="muted">Predictions are saved on this device. You can enter the actual score later to check them.</p>
   <div id="historyList"></div>
@@ -159,70 +173,97 @@ footer{max-width:1050px;margin:auto;padding:0 16px 30px;color:var(--muted);font-
 <script>
 "use strict";
 const $ = id => document.getElementById(id);
-  $("year").textContent = new Date().getFullYear();
+$("year").textContent = new Date().getFullYear();
 const API = "/api/football";
 const PREDICTIONS_API = "/api/predictions";
 const STORAGE = "browndy_predictions_v2";
 const TOKEN_KEY = "browndy_customer_token";
-const AI_PROVIDERS = [{name:"Gemini",url:"/api/gemini"},{name:"Groq",url:"/api/groq"}];
-
+const AI_PROVIDERS = [
+  {name:"Gemini",url:"/api/gemini"},
+  {name:"Groq",url:"/api/groq"}
+];
 let matches = [];
 let recentMatches = [];
 let currentStatistical = null;
 let currentAIResults = [];
 let selectedMatch = null;
-
-function getAuthToken(){return sessionStorage.getItem(TOKEN_KEY) || "";}
-function authHeaders(){const token=getAuthToken();return token ? {"Authorization":`Bearer ${token}`} : {};}
-
+function getAuthToken(){
+  return sessionStorage.getItem(TOKEN_KEY) || "";
+}
+function authHeaders(){
+  const token = getAuthToken();
+  return token ? {"Authorization":`Bearer ${token}`} : {};
+}
 function safe(value){
   return String(value ?? "").replace(/[&<>"']/g,char=>({
-    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+    "&":"&amp;",
+    "<":"&lt;",
+    ">":"&gt;",
+    '"':"&quot;",
+    "'":"&#39;"
   })[char]);
 }
-
 function teamName(team){
   if(typeof team==="string") return team;
   return team?.name || team?.shortName || "Unknown team";
 }
-
 function normalizeTeamName(name){
-  return String(name || "").toLowerCase().normalize("NFD")
-    .replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]/g,"");
+  return String(name || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g,"")
+    .replace(/[^a-z0-9]/g,"");
 }
-
 function sameTeamName(a,b){
   return normalizeTeamName(a)===normalizeTeamName(b);
 }
-
+/* Supports both Football-Data.org score objects
+   and the simplified score objects returned by our API. */
 function scoreParts(score){
   if(!score) return null;
-  const home=score.fullTime?.home ?? score.regularTime?.home;
-  const away=score.fullTime?.away ?? score.regularTime?.away;
+  const home =
+    score.home ??
+    score.fullTime?.home ??
+    score.regularTime?.home;
+  const away =
+    score.away ??
+    score.fullTime?.away ??
+    score.regularTime?.away;
   if(home==null || away==null) return null;
-  return {home:Number(home),away:Number(away)};
+  return {
+    home:Number(home),
+    away:Number(away)
+  };
 }
-
-function matchScore(match){return scoreParts(match.score);}
-
+function matchScore(match){
+  if(!match) return null;
+  const score = scoreParts(match.score);
+  if(score) return score;
+  if(match.homeScore!=null && match.awayScore!=null){
+    return {
+      home:Number(match.homeScore),
+      away:Number(match.awayScore)
+    };
+  }
+  return null;
+}
 function getHistory(){
   try{
     const data=JSON.parse(localStorage.getItem(STORAGE) || "[]");
     return Array.isArray(data) ? data : [];
-  }catch{return [];}
+  }catch{
+    return [];
+  }
 }
-
 function saveHistory(history){
   localStorage.setItem(STORAGE,JSON.stringify(history));
 }
-
 function dateText(value){
   if(!value) return "Date unavailable";
   const date=new Date(value);
   if(Number.isNaN(date.getTime())) return String(value);
   return date.toLocaleString();
 }
-
 function dateInputValue(value){
   if(!value) return "";
   const date=new Date(value);
@@ -230,123 +271,130 @@ function dateInputValue(value){
   const local=new Date(date.getTime()-date.getTimezoneOffset()*60000);
   return local.toISOString().slice(0,16);
 }
-
 function competitionName(match){
-  return match.competition?.name || match.competition || "Football";
+  return match?.competition?.name ||
+    match?.competition ||
+    "Football";
 }
-
-function crest(team){
-  const image=team?.crest;
-  return image ? `<img class="crest" src="${safe(image)}" alt="" loading="lazy">` : "";
+/* API returns homeCrest and awayCrest separately. */
+function crest(team,imageUrl){
+  const image=imageUrl || team?.crest;
+  return image
+    ? `<img class="crest" src="${safe(image)}" alt="" loading="lazy" onerror="this.style.display='none'">`
+    : "";
 }
-
 function matchCard(match,index,isRecent=false){
   const home=teamName(match.homeTeam);
   const away=teamName(match.awayTeam);
   const score=matchScore(match);
-  const result=score ? `${score.home} - ${score.away}` : "";
-  const status=isRecent ? `Finished ${result}` : dateText(match.utcDate);
-
-  return `<button type="button" class="match-card" data-match="${index}" data-recent="${isRecent}">
-    <span class="match-teams">
-      ${crest(match.homeTeam)}
-      <strong>${safe(home)}</strong>
-      <span>vs</span>
-      <strong>${safe(away)}</strong>
-      ${crest(match.awayTeam)}
-    </span>
-    <span class="match-info">${safe(competitionName(match))} · ${safe(status)}</span>
-  </button>`;
+  const result=score
+    ? `${score.home} - ${score.away}`
+    : "Score unavailable";
+  const status=isRecent
+    ? `Finished · ${result}`
+    : dateText(match.utcDate || match.date);
+  return `
+    <button type="button"
+      class="match-card"
+      data-match="${index}"
+      data-recent="${isRecent}">
+      <span class="match-teams">
+        ${crest(match.homeTeam,match.homeCrest)}
+        <strong>${safe(home)}</strong>
+        <span>vs</span>
+        <strong>${safe(away)}</strong>
+        ${crest(match.awayTeam,match.awayCrest)}
+      </span>
+      <span class="match-info">
+        ${safe(competitionName(match))} · ${safe(status)}
+      </span>
+    </button>
+  `;
 }
-
 async function loadMatches(){
   $("feedStatus").textContent="Loading fixtures...";
   $("reload").disabled=true;
-
   try{
     const response=await fetch(API,{
       headers:authHeaders(),
       cache:"no-store"
     });
-
     const data=await response.json().catch(()=>({}));
-
     if(!response.ok){
-      throw new Error(data.error || `Unable to load fixtures (${response.status}).`);
+      throw new Error(
+        data.error || `Unable to load fixtures (${response.status}).`
+      );
     }
-
-    matches=data.matches || data.upcoming || [];
-    recentMatches=data.recentMatches || data.recent || [];
-
-    if(!Array.isArray(matches)) matches=[];
-    if(!Array.isArray(recentMatches)) recentMatches=[];
-
+    if(data.success===false && data.error){
+      throw new Error(data.error);
+    }
+    matches=Array.isArray(data.matches)
+      ? data.matches
+      : Array.isArray(data.upcoming)
+        ? data.upcoming
+        : [];
+    recentMatches=Array.isArray(data.recentMatches)
+      ? data.recentMatches
+      : Array.isArray(data.recent)
+        ? data.recent
+        : [];
     $("matchesList").innerHTML=matches.length
-      ? matches.map((m,i)=>matchCard(m,i)).join("")
-      : "<p>No upcoming fixtures available.</p>";
-
+      ? matches.map((match,index)=>matchCard(match,index)).join("")
+      : "<p class='muted'>No upcoming fixtures available right now.</p>";
     $("recentList").innerHTML=recentMatches.length
-      ? recentMatches.map((m,i)=>matchCard(m,i,true)).join("")
-      : "<p>No recent results available.</p>";
-
-    $("feedStatus").textContent=`${matches.length} upcoming fixtures loaded.`;
-
+      ? recentMatches.map((match,index)=>matchCard(match,index,true)).join("")
+      : "<p class='muted'>No recent results available.</p>";
+    $("feedStatus").textContent=
+      `${matches.length} upcoming fixtures loaded.`;
+    if(data.upcomingError){
+      $("feedStatus").textContent +=
+        ` Some fixture requests failed: ${data.upcomingError}`;
+    }
   }catch(error){
-    $("feedStatus").textContent=error.message || "Unable to load fixtures.";
+    $("feedStatus").textContent=
+      error.message || "Unable to load fixtures.";
+    $("matchesList").innerHTML=
+      "<p class='error'>Fixtures could not be loaded. Please try again.</p>";
   }finally{
     $("reload").disabled=false;
   }
 }
-
 function clearSelectedMatch(){
   selectedMatch=null;
 }
-
 document.addEventListener("click",event=>{
   const card=event.target.closest("[data-match]");
   if(!card) return;
-
   const index=Number(card.dataset.match);
   const isRecent=card.dataset.recent==="true";
   const source=isRecent ? recentMatches : matches;
   const match=source[index];
-
   if(!match) return;
-
   $("home").value=teamName(match.homeTeam);
   $("away").value=teamName(match.awayTeam);
   $("competition").value=competitionName(match);
-  $("kickoff").value=dateInputValue(match.utcDate);
-
+  $("kickoff").value=dateInputValue(match.utcDate || match.date);
   selectedMatch=isRecent ? null : match;
-
   $("analysisStatus").textContent=isRecent
     ? "Completed match selected. It will not be saved as a new upcoming fixture."
     : "Fixture selected. You can now generate a prediction.";
-
   document.querySelectorAll("[data-tab]").forEach(tab=>{
     tab.classList.toggle("active",tab.dataset.tab==="matches");
   });
-
   document.querySelectorAll(".tabpage").forEach(page=>{
     page.classList.toggle("hidden",page.id!=="matches");
   });
-
   $("home").focus();
 });
-
 ["home","away","competition","kickoff"].forEach(id=>{
   $(id).addEventListener("input",()=>{
-    if(selectedMatch){
-      const same=
-        sameTeamName($("home").value,teamName(selectedMatch.homeTeam)) &&
-        sameTeamName($("away").value,teamName(selectedMatch.awayTeam));
-
-      if(!same) clearSelectedMatch();
-    }
+    if(!selectedMatch) return;
+    const same =
+      sameTeamName($("home").value,teamName(selectedMatch.homeTeam)) &&
+      sameTeamName($("away").value,teamName(selectedMatch.awayTeam));
+    if(!same) clearSelectedMatch();
   });
 });
-
 function completedMatches(team){
   return recentMatches.filter(match=>{
     const score=matchScore(match);
@@ -356,88 +404,107 @@ function completedMatches(team){
     );
   }).slice(0,10);
 }
-
 function poisson(lambda,k){
   let factorial=1;
-  for(let i=1;i<=k;i++) factorial*=i;
+  for(let i=1;i<=k;i++){
+    factorial*=i;
+  }
   return Math.exp(-lambda)*Math.pow(lambda,k)/factorial;
 }
-
 function teamRates(team){
   const games=completedMatches(team);
-  let scored=0,conceded=0,count=0;
-
+  let scored=0;
+  let conceded=0;
+  let count=0;
   games.forEach(match=>{
     const score=matchScore(match);
     if(!score) return;
-
     const isHome=sameTeamName(teamName(match.homeTeam),team);
     scored+=isHome ? score.home : score.away;
     conceded+=isHome ? score.away : score.home;
     count++;
   });
-
-  if(!count) return {attack:1.35,defence:1.1};
-
+  if(!count){
+    return {
+      attack:1.35,
+      defence:1.1,
+      gamesUsed:0
+    };
+  }
   return {
     attack:Math.max(0.3,scored/count),
-    defence:Math.max(0.3,conceded/count)
+    defence:Math.max(0.3,conceded/count),
+    gamesUsed:count
   };
 }
-
 function buildModel(home,away){
   const h=teamRates(home);
   const a=teamRates(away);
-
   return {
     homeGoals:Math.max(0.3,(h.attack+a.defence)/2),
-    awayGoals:Math.max(0.3,(a.attack+h.defence)/2)
+    awayGoals:Math.max(0.3,(a.attack+h.defence)/2),
+    homeGamesUsed:h.gamesUsed,
+    awayGamesUsed:a.gamesUsed
   };
 }
-
 function makePrediction(home,away){
   const model=buildModel(home,away);
-
-  let bestScore={home:0,away:0,probability:0};
-  let homeWin=0,draw=0,awayWin=0,over25=0,btts=0;
-
-  for(let h=0;h<=6;h++){
-    for(let a=0;a<=6;a++){
-      const probability=poisson(model.homeGoals,h)*poisson(model.awayGoals,a);
-
+  let bestScore={
+    home:0,
+    away:0,
+    probability:0
+  };
+  let homeWin=0;
+  let draw=0;
+  let awayWin=0;
+  let over25=0;
+  let btts=0;
+  for(let h=0;h<=8;h++){
+    for(let a=0;a<=8;a++){
+      const probability=
+        poisson(model.homeGoals,h)*
+        poisson(model.awayGoals,a);
       if(probability>bestScore.probability){
-        bestScore={home:h,away:a,probability};
+        bestScore={
+          home:h,
+          away:a,
+          probability
+        };
       }
-
       if(h>a) homeWin+=probability;
       else if(h===a) draw+=probability;
       else awayWin+=probability;
-
       if(h+a>2.5) over25+=probability;
       if(h>0 && a>0) btts+=probability;
     }
   }
-
   const outcome=
-    homeWin>=draw && homeWin>=awayWin ? "Home win" :
-    awayWin>=draw && awayWin>=homeWin ? "Away win" : "Draw";
-
+    homeWin>=draw && homeWin>=awayWin
+      ? "Home win"
+      : awayWin>=draw && awayWin>=homeWin
+        ? "Away win"
+        : "Draw";
   return {
-    home,away,
+    home,
+    away,
     score:`${bestScore.home}-${bestScore.away}`,
     outcome,
     doubleChance:homeWin>=awayWin ? "1X":"X2",
     goals:over25>=0.5 ? "Over 2.5":"Under 2.5",
     btts:btts>=0.5 ? "Yes":"No",
-    probabilities:{home:homeWin,draw,away:awayWin,over25,btts},
+    probabilities:{
+      home:homeWin,
+      draw,
+      away:awayWin,
+      over25,
+      btts
+    },
     model
   };
 }
-
 function pct(value){
   return `${Math.round(value*100)}%`;
 }
-
 function showPrediction(prediction){
   $("prediction").innerHTML=`
     <div class="metric"><small>Correct score</small><strong>${safe(prediction.score)}</strong></div>
@@ -450,8 +517,12 @@ function showPrediction(prediction){
     <div class="metric"><small>Away win probability</small><strong>${pct(prediction.probabilities.away)}</strong></div>
     <div class="metric"><small>Over 2.5 probability</small><strong>${pct(prediction.probabilities.over25)}</strong></div>
     <div class="metric"><small>BTTS Yes probability</small><strong>${pct(prediction.probabilities.btts)}</strong></div>
-    <p class="notice">Statistical estimates are not guaranteed results.</p>`;
-
+    <p class="notice">
+      Recent matches used: Home ${prediction.model.homeGamesUsed},
+      Away ${prediction.model.awayGamesUsed}.
+      These are statistical estimates, not guaranteed results.
+    </p>
+  `;
   $("prediction").classList.remove("hidden");
 }
 function recentDataForTeams(home,away){
@@ -460,46 +531,46 @@ function recentDataForTeams(home,away){
     away:completedMatches(away)
   };
 }
-
 function parseScore(value){
-  const match=String(value || "").match(/(\d+)\s*[-:]\s*(\d+)/);
-  return match ? `${match[1]}-${match[2]}` : null;
+  const match=String(value || "").match(/^\s*(\d+)\s*[-:]\s*(\d+)\s*$/);
+  return match
+    ? `${match[1]}-${match[2]}`
+    : null;
 }
-
 function normalizeOutcome(value){
   const text=String(value || "").toLowerCase();
   if(text.includes("home")) return "Home win";
   if(text.includes("away")) return "Away win";
   if(text.includes("draw")) return "Draw";
-  return value || "";
+  return "";
 }
-
 function normalizeDouble(value){
   const text=String(value || "").toUpperCase();
-  return ["1X","X2","12"].includes(text) ? text : "";
+  return ["1X","X2","12"].includes(text)
+    ? text
+    : "";
 }
-
 function normalizeGoals(value){
   const text=String(value || "").toLowerCase();
   if(text.includes("over")) return "Over 2.5";
   if(text.includes("under")) return "Under 2.5";
   return "";
 }
-
 function normalizeBtts(value){
   const text=String(value || "").toLowerCase();
   if(text.includes("yes")) return "Yes";
   if(text.includes("no")) return "No";
   return "";
 }
-
 function extractPrediction(data){
   if(typeof data==="string"){
-    try{data=JSON.parse(data);}catch{return {raw:data};}
+    try{
+      data=JSON.parse(data);
+    }catch{
+      return {raw:data};
+    }
   }
-
   const result=data?.prediction || data?.result || data || {};
-
   return {
     score:parseScore(result.score || result.correctScore),
     outcome:normalizeOutcome(result.outcome || result.matchWinner),
@@ -509,15 +580,14 @@ function extractPrediction(data){
     raw:result.analysis || result.explanation || result.text || ""
   };
 }
-
 function majority(values){
   const counts={};
   values.filter(Boolean).forEach(value=>{
     counts[value]=(counts[value] || 0)+1;
   });
-  return Object.entries(counts).sort((a,b)=>b[1]-a[1])[0]?.[0] || "";
+  return Object.entries(counts)
+    .sort((a,b)=>b[1]-a[1])[0]?.[0] || "";
 }
-
 function consensusPrediction(results){
   return {
     score:majority(results.map(r=>r.score)),
@@ -527,7 +597,6 @@ function consensusPrediction(results){
     btts:majority(results.map(r=>r.btts))
   };
 }
-
 async function callAI(provider,home,away,competition){
   const response=await fetch(provider.url,{
     method:"POST",
@@ -542,24 +611,23 @@ async function callAI(provider,home,away,competition){
       recentData:recentDataForTeams(home,away)
     })
   });
-
   const data=await response.json().catch(()=>({}));
-
   if(!response.ok){
-    throw new Error(data.error || `${provider.name} request failed (${response.status}).`);
+    throw new Error(
+      data.error || `${provider.name} request failed (${response.status}).`
+    );
   }
-
   return {
     provider:provider.name,
     ...extractPrediction(data)
   };
 }
-
 async function savePrediction(prediction,type="Statistical"){
   const history=getHistory();
-
   const localItem={
-    id:(crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`),
+    id:crypto.randomUUID
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(16).slice(2)}`,
     date:new Date().toISOString(),
     home:prediction.home,
     away:prediction.away,
@@ -575,21 +643,19 @@ async function savePrediction(prediction,type="Statistical"){
     kickoff:selectedMatch?.utcDate || $("kickoff").value || null,
     databaseStatus:"Device only"
   };
-
   history.unshift(localItem);
   saveHistory(history.slice(0,100));
   renderHistory();
-
   if(!localItem.matchId){
-    $("analysisStatus").textContent="Prediction saved on this device. Select an official upcoming fixture to link it to the online results tracker.";
+    $("analysisStatus").textContent=
+      "Prediction saved on this device. Select an official upcoming fixture to link it to the online tracker.";
     return;
   }
-
   if(!getAuthToken()){
-    $("analysisStatus").textContent="Prediction saved on this device. Log in to save it to your online account.";
+    $("analysisStatus").textContent=
+      "Prediction saved on this device. Log in to save it to your online account.";
     return;
   }
-
   try{
     const response=await fetch(PREDICTIONS_API,{
       method:"POST",
@@ -610,268 +676,269 @@ async function savePrediction(prediction,type="Statistical"){
         predicted_btts:localItem.btts
       })
     });
-
     const data=await response.json().catch(()=>({}));
-
     if(!response.ok){
-      throw new Error(data.error || `Online save failed (${response.status}).`);
+      throw new Error(
+        data.error || `Online save failed (${response.status}).`
+      );
     }
-
     localItem.databaseStatus="Saved to online account";
     localItem.databaseId=data.id || null;
-
     const updated=getHistory();
     const found=updated.find(item=>item.id===localItem.id);
-
     if(found){
       found.databaseStatus=localItem.databaseStatus;
       found.databaseId=localItem.databaseId;
       saveHistory(updated);
       renderHistory();
     }
-
-    $("analysisStatus").textContent="Prediction saved on this device and to your online account.";
-
+    $("analysisStatus").textContent=
+      "Prediction saved on this device and to your online account.";
   }catch(error){
-    $("analysisStatus").textContent=`Saved on this device, but online saving failed: ${error.message}`;
+    $("analysisStatus").textContent=
+      `Saved on this device, but online saving failed: ${error.message}`;
   }
 }
-  $("analyse").addEventListener("click",async()=>{
-  const home=$("home").value.trim(),away=$("away").value.trim();
-
+$("analyse").addEventListener("click",async()=>{
+  const home=$("home").value.trim();
+  const away=$("away").value.trim();
   if(!home || !away){
     $("analysisStatus").textContent="Enter both team names first.";
     return;
   }
-
   if(sameTeamName(home,away)){
     $("analysisStatus").textContent="Choose two different teams.";
     return;
   }
-
-  currentStatistical=makePrediction(home,away);
-  showPrediction(currentStatistical);
-
-  $("analysisStatus").textContent="Statistical analysis completed. Saving prediction...";
-  $("dataNote").textContent="Based on available recent results and a statistical model.";
-
-  await savePrediction(currentStatistical,"Statistical");
+  $("analyse").disabled=true;
+  try{
+    currentStatistical=makePrediction(home,away);
+    showPrediction(currentStatistical);
+    $("analysisStatus").textContent=
+      "Statistical analysis completed. Saving prediction...";
+    $("dataNote").textContent=
+      "Based on available recent completed results and a statistical model. If recent data is unavailable, a baseline estimate is used.";
+    await savePrediction(currentStatistical,"Statistical");
+  }catch(error){
+    $("analysisStatus").textContent=
+      error.message || "Unable to generate prediction.";
+  }finally{
+    $("analyse").disabled=false;
+  }
 });
-
 $("runAI").addEventListener("click",async()=>{
-  const home=$("home").value.trim(),away=$("away").value.trim();
-
+  const home=$("home").value.trim();
+  const away=$("away").value.trim();
   if(!home || !away){
     $("analysisStatus").textContent="Enter both team names first.";
     return;
   }
-
-  if(!getAuthToken()){
-    $("analysisStatus").textContent="Please log in before using AI analysis.";
+  if(sameTeamName(home,away)){
+    $("analysisStatus").textContent="Choose two different teams.";
     return;
   }
-
-  if(!confirm("AI analysis uses external providers. Your API requests may consume paid credits. Continue?")) return;
-
-  $("analysisStatus").textContent="Running Gemini and Groq analysis...";
+  if(!getAuthToken()){
+    $("analysisStatus").textContent=
+      "Please log in before using AI analysis.";
+    return;
+  }
+  if(!confirm(
+    "AI analysis uses external providers. Your API requests may consume paid credits. Continue?"
+  )){
+    return;
+  }
+  $("runAI").disabled=true;
+  $("analysisStatus").textContent=
+    "Running Gemini and Groq analysis...";
   $("geminiBox").classList.remove("hidden");
   $("geminiBox").textContent="AI analysis in progress...";
-
   const competition=$("competition").value.trim();
-
-  const results=await Promise.allSettled(
-    AI_PROVIDERS.map(provider=>callAI(provider,home,away,competition))
-  );
-
-  currentAIResults=results
-    .filter(result=>result.status==="fulfilled")
-    .map(result=>result.value);
-
-  if(!currentAIResults.length){
-    $("analysisStatus").textContent="AI analysis failed.";
-    $("geminiBox").textContent=results
-      .map(result=>result.reason?.message || "Provider error")
-      .join("\n");
-    return;
+  try{
+    const results=await Promise.allSettled(
+      AI_PROVIDERS.map(provider=>
+        callAI(provider,home,away,competition)
+      )
+    );
+    currentAIResults=results
+      .filter(result=>result.status==="fulfilled")
+      .map(result=>result.value);
+    if(!currentAIResults.length){
+      throw new Error(
+        results.map(result=>
+          result.reason?.message || "Provider error"
+        ).join(" | ")
+      );
+    }
+    const consensus=consensusPrediction(currentAIResults);
+    $("geminiBox").innerHTML=`
+      <h3>AI Analysis Results</h3>
+      ${currentAIResults.map(result=>`
+        <p><strong>${safe(result.provider)}</strong></p>
+        <p>Correct score: ${safe(result.score || "Unavailable")}</p>
+        <p>Outcome: ${safe(result.outcome || "Unavailable")}</p>
+        <p>Double chance: ${safe(result.doubleChance || "Unavailable")}</p>
+        <p>Goals: ${safe(result.goals || "Unavailable")}</p>
+        <p>BTTS: ${safe(result.btts || "Unavailable")}</p>
+        ${result.raw ? `<p>${safe(result.raw)}</p>` : ""}
+      `).join("<hr>")}
+      <hr>
+      <h3>Combined AI Prediction</h3>
+      <p>Correct score: ${safe(consensus.score || "No consensus")}</p>
+      <p>Outcome: ${safe(consensus.outcome || "No consensus")}</p>
+      <p>Double chance: ${safe(consensus.doubleChance || "No consensus")}</p>
+      <p>Goals: ${safe(consensus.goals || "No consensus")}</p>
+      <p>BTTS: ${safe(consensus.btts || "No consensus")}</p>
+    `;
+    $("analysisStatus").textContent=
+      `${currentAIResults.length} AI provider(s) responded. Saving AI prediction...`;
+    await savePrediction({
+      home,
+      away,
+      score:consensus.score || "",
+      outcome:consensus.outcome || "",
+      doubleChance:consensus.doubleChance || "",
+      goals:consensus.goals || "",
+      btts:consensus.btts || ""
+    },"AI consensus");
+  }catch(error){
+    $("analysisStatus").textContent=
+      error.message || "AI analysis failed.";
+    $("geminiBox").textContent=
+      error.message || "AI providers could not respond.";
+  }finally{
+    $("runAI").disabled=false;
   }
-
-  const consensus=consensusPrediction(currentAIResults);
-
-  $("geminiBox").innerHTML=`
-    <h3>AI Analysis Results</h3>
-    ${currentAIResults.map(result=>`
-      <p><strong>${safe(result.provider)}</strong></p>
-      <p>Correct score: ${safe(result.score || "Unavailable")}</p>
-      <p>Outcome: ${safe(result.outcome || "Unavailable")}</p>
-      <p>Double chance: ${safe(result.doubleChance || "Unavailable")}</p>
-      <p>Goals: ${safe(result.goals || "Unavailable")}</p>
-      <p>BTTS: ${safe(result.btts || "Unavailable")}</p>
-      ${result.raw ? `<p>${safe(result.raw)}</p>` : ""}
-    `).join("<hr>")}
-    <hr>
-    <h3>Combined AI Prediction</h3>
-    <p>Correct score: ${safe(consensus.score || "No consensus")}</p>
-    <p>Outcome: ${safe(consensus.outcome || "No consensus")}</p>
-    <p>Double chance: ${safe(consensus.doubleChance || "No consensus")}</p>
-    <p>Goals: ${safe(consensus.goals || "No consensus")}</p>
-    <p>BTTS: ${safe(consensus.btts || "No consensus")}</p>
-  `;
-
-  $("analysisStatus").textContent=
-    `${currentAIResults.length} AI provider(s) responded. Saving AI prediction...`;
-
-  await savePrediction({
-    home,away,
-    score:consensus.score || "",
-    outcome:consensus.outcome || "",
-    doubleChance:consensus.doubleChance || "",
-    goals:consensus.goals || "",
-    btts:consensus.btts || ""
-  },"AI consensus");
 });
-
 function grade(item){
   if(!item.actual) return null;
-
   const actual=item.actual;
   const total=actual.home+actual.away;
-
   const actualOutcome=
-    actual.home>actual.away ? "Home win" :
-    actual.home<actual.away ? "Away win" : "Draw";
-
+    actual.home>actual.away
+      ? "Home win"
+      : actual.home<actual.away
+        ? "Away win"
+        : "Draw";
   return {
     score:item.score===`${actual.home}-${actual.away}`,
-
-    outcome:!item.outcome || item.outcome===actualOutcome,
-
+    outcome:!item.outcome ||
+      item.outcome===actualOutcome,
     doubleChance:!item.doubleChance ||
-      (item.doubleChance==="1X" ? actual.home>=actual.away :
-       item.doubleChance==="X2" ? actual.away>=actual.home :
-       actual.home!==actual.away),
-
-    btts:(actual.home>0 && actual.away>0 ? "Yes":"No")===item.btts,
-
-    goals:(total>2.5 ? "Over 2.5":"Under 2.5")===item.goals
+      (
+        item.doubleChance==="1X"
+          ? actual.home>=actual.away
+          : item.doubleChance==="X2"
+            ? actual.away>=actual.home
+            : actual.home!==actual.away
+      ),
+    btts:!item.btts ||
+      (actual.home>0 && actual.away>0 ? "Yes":"No")===item.btts,
+    goals:!item.goals ||
+      (total>2.5 ? "Over 2.5":"Under 2.5")===item.goals
   };
 }
-
 function renderHistory(){
   const history=getHistory();
   const checked=history.filter(item=>item.actual);
-
   const correct=checked.filter(item=>{
     const result=grade(item);
     return result && (
-      result.score || result.outcome ||
-      result.doubleChance || result.btts || result.goals
+      result.score ||
+      result.outcome ||
+      result.doubleChance ||
+      result.btts ||
+      result.goals
     );
   });
-
   $("historyStats").innerHTML=`
     <div class="metric"><small>Predictions</small><strong>${history.length}</strong></div>
     <div class="metric"><small>Results entered</small><strong>${checked.length}</strong></div>
     <div class="metric"><small>With a correct market</small><strong>${correct.length}</strong></div>
   `;
-
-  $("historyList").innerHTML=history.length ? history.map(item=>{
-    const result=grade(item);
-
-    return `
-      <div class="history-card" data-history="${safe(item.id)}">
-        <strong>${safe(item.home)} vs ${safe(item.away)}</strong>
-        <p>Prediction: ${safe(item.score || "Not available")}</p>
-        <p>Type: ${safe(item.type)}</p>
-        <p>Date: ${safe(dateText(item.date))}</p>
-        <p>Online status: ${safe(item.databaseStatus || "Device only")}</p>
-
-        ${item.actual ? `
-          <p>Entered result: ${item.actual.home}-${item.actual.away}</p>
-          <p>
-            Correct score: ${result.score?"Yes":"No"} ·
-            Outcome: ${result.outcome?"Yes":"No"} ·
-            Double chance: ${result.doubleChance?"Yes":"No"} ·
-            BTTS: ${result.btts?"Yes":"No"} ·
-            Goals: ${result.goals?"Yes":"No"}
-          </p>
-        ` : `
-          <button type="button" data-action="result">Enter result</button>
-        `}
-
-        <button type="button" data-action="delete">Delete</button>
-      </div>
-    `;
-  }).join("") : "<p>No predictions saved yet.</p>";
+  $("historyList").innerHTML=history.length
+    ? history.map(item=>{
+        const result=grade(item);
+        return `
+          <div class="history-card" data-history="${safe(item.id)}">
+            <strong>${safe(item.home)} vs ${safe(item.away)}</strong>
+            <p>Prediction: ${safe(item.score || "Not available")}</p>
+            <p>Type: ${safe(item.type)}</p>
+            <p>Date: ${safe(dateText(item.date))}</p>
+            <p>Online status: ${safe(item.databaseStatus || "Device only")}</p>
+            ${item.actual ? `
+              <p>Entered result: ${item.actual.home}-${item.actual.away}</p>
+              <p>
+                Correct score: ${result.score?"Yes":"No"} ·
+                Outcome: ${result.outcome?"Yes":"No"} ·
+                Double chance: ${result.doubleChance?"Yes":"No"} ·
+                BTTS: ${result.btts?"Yes":"No"} ·
+                Goals: ${result.goals?"Yes":"No"}
+              </p>
+              <button type="button" data-action="result">Edit result</button>
+            ` : `
+              <button type="button" data-action="result">Enter result</button>
+            `}
+            <button type="button" data-action="delete">Delete</button>
+          </div>
+        `;
+      }).join("")
+    : "<p>No predictions saved yet.</p>";
 }
-
 $("historyList").addEventListener("click",event=>{
   const button=event.target.closest("[data-action]");
   if(!button) return;
-
   const card=button.closest("[data-history]");
   const id=card?.dataset.history;
   if(!id) return;
-
   const history=getHistory();
   const index=history.findIndex(item=>item.id===id);
   if(index<0) return;
-
   if(button.dataset.action==="delete"){
     if(!confirm("Delete this prediction?")) return;
-
     history.splice(index,1);
     saveHistory(history);
     renderHistory();
   }
-
   if(button.dataset.action==="result"){
-    const entered=prompt("Enter the final score, for example 2-1:");
-
+    const entered=prompt(
+      "Enter the final score, for example 2-1:"
+    );
     if(entered===null) return;
-
     const score=parseScore(entered);
-
     if(!score){
       alert("Please enter a valid score, for example 2-1.");
       return;
     }
-
     const [home,away]=score.split("-").map(Number);
-
     history[index].actual={home,away};
-
     saveHistory(history);
     renderHistory();
   }
 });
-
 $("clearHistory").addEventListener("click",()=>{
-  if(!confirm("Clear all saved predictions and results from this device?")) return;
-
+  if(!confirm(
+    "Clear all saved predictions and results from this device?"
+  )){
+    return;
+  }
   saveHistory([]);
   renderHistory();
 });
-
 $("reload").addEventListener("click",loadMatches);
-
 document.querySelectorAll("[data-tab]").forEach(button=>{
   button.addEventListener("click",()=>{
     const selected=button.dataset.tab;
-
     document.querySelectorAll("[data-tab]").forEach(tab=>{
       tab.classList.toggle("active",tab===button);
     });
-
     document.querySelectorAll(".tabpage").forEach(page=>{
       page.classList.toggle("hidden",page.id!==selected);
     });
   });
 });
-
 renderHistory();
 loadMatches();
 </script>
-
 <script>
 $("shareAppBtn").addEventListener("click",async()=>{
   const shareData={
@@ -879,7 +946,6 @@ $("shareAppBtn").addEventListener("click",async()=>{
     text:"Check out Browndy Predicts for football fixtures, predictions and AI match analysis!",
     url:"https://browndy-predicts.pages.dev"
   };
-
   try{
     if(navigator.share){
       await navigator.share(shareData);
@@ -887,16 +953,21 @@ $("shareAppBtn").addEventListener("click",async()=>{
       await navigator.clipboard.writeText(shareData.url);
       alert("App link copied! You can now share it with your friends.");
     }else{
-      window.prompt("Copy this link and share Browndy Predicts:",shareData.url);
+      window.prompt(
+        "Copy this link and share Browndy Predicts:",
+        shareData.url
+      );
     }
   }catch(error){
     if(error.name!=="AbortError"){
-      window.prompt("Copy this link and share Browndy Predicts:",shareData.url);
+      window.prompt(
+        "Copy this link and share Browndy Predicts:",
+        shareData.url
+      );
     }
   }
 });
 </script>
-
 <script>
 if("serviceWorker" in navigator){
   window.addEventListener("load",()=>{
@@ -905,6 +976,5 @@ if("serviceWorker" in navigator){
   });
 }
 </script>
-
 </body>
 </html>
