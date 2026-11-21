@@ -1,5 +1,4 @@
 <!doctype html>
-
 <html lang="en">
 <head>
 <meta name="google-site-verification" content="xHO8_WL3RPFVmOZmPH5ZhcN1aYIMPXCeH7LnEXp_jGk">
@@ -27,254 +26,56 @@
 <meta name="apple-mobile-web-app-title" content="Browndy Predicts">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <style>
-:root{
-  --bg:#06150f;
-  --panel:#10271e;
-  --panel2:#16372a;
-  --line:#294c3a;
-  --text:#f4fff7;
-  --muted:#a9c0b4;
-  --accent:#8df0ad;
-  --warn:#ffda8a;
-  --red:#ffaaa0;
-}
+:root{--bg:#06150f;--panel:#10271e;--panel2:#16372a;--line:#294c3a;--text:#f4fff7;--muted:#a9c0b4;--accent:#8df0ad;--warn:#ffda8a;--red:#ffaaa0}
 *{box-sizing:border-box}
 html{scroll-behavior:smooth}
-body{
-  margin:0;
-  background:
-    radial-gradient(ellipse at top,#173b29 0%,transparent 45%),
-    linear-gradient(180deg,#06150f,#0b2118 50%,#06150f);
-  color:var(--text);
-  font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
-  min-height:100vh;
-}
-header{
-  max-width:1050px;
-  margin:auto;
-  padding:35px 18px 25px;
-}
-.brand{
-  font-size:11px;
-  letter-spacing:2.5px;
-  color:var(--accent);
-  font-weight:900;
-}
+body{margin:0;background:radial-gradient(ellipse at top,#173b29 0%,transparent 45%),linear-gradient(180deg,#06150f,#0b2118 50%,#06150f);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;min-height:100vh}
+header{max-width:1050px;margin:auto;padding:35px 18px 25px}
+.brand{font-size:11px;letter-spacing:2.5px;color:var(--accent);font-weight:900}
 .hero{padding:22px 0 12px}
-.hero-label{
-  display:inline-block;
-  background:#173b2a;
-  border:1px solid #326447;
-  color:var(--accent);
-  padding:7px 12px;
-  border-radius:30px;
-  font-size:11px;
-  font-weight:800;
-  letter-spacing:1px;
-}
-h1{
-  margin:17px 0 10px;
-  font-size:clamp(35px,8vw,58px);
-  line-height:1.05;
-  letter-spacing:-1.8px;
-}
+.hero-label{display:inline-block;background:#173b2a;border:1px solid #326447;color:var(--accent);padding:7px 12px;border-radius:30px;font-size:11px;font-weight:800;letter-spacing:1px}
+h1{margin:17px 0 10px;font-size:clamp(35px,8vw,58px);line-height:1.05;letter-spacing:-1.8px}
 .hero h1 span{color:var(--accent)}
 p{line-height:1.6}
 .sub,.muted{color:var(--muted)}
-.hero-description{
-  max-width:650px;
-  font-size:16px;
-  color:#c1d6c9;
-}
-.hero-buttons{
-  display:flex;
-  gap:10px;
-  flex-wrap:wrap;
-  margin-top:20px;
-}
-main{
-  max-width:1050px;
-  margin:auto;
-  padding:0 14px 45px;
-}
-.tabs{
-  display:flex;
-  gap:8px;
-  flex-wrap:wrap;
-  margin:15px 0 20px;
-  padding:9px;
-  background:#0c2118;
-  border:1px solid var(--line);
-  border-radius:15px;
-}
-button{
-  border:1px solid var(--line);
-  background:var(--panel2);
-  color:var(--text);
-  border-radius:11px;
-  padding:12px 15px;
-  font-weight:750;
-  cursor:pointer;
-  transition:transform .15s,background .15s;
-}
+.hero-description{max-width:650px;font-size:16px;color:#c1d6c9}
+.hero-buttons{display:flex;gap:10px;flex-wrap:wrap;margin-top:20px}
+main{max-width:1050px;margin:auto;padding:0 14px 45px}
+.tabs{display:flex;gap:8px;flex-wrap:wrap;margin:15px 0 20px;padding:9px;background:#0c2118;border:1px solid var(--line);border-radius:15px}
+button{border:1px solid var(--line);background:var(--panel2);color:var(--text);border-radius:11px;padding:12px 15px;font-weight:750;cursor:pointer;transition:transform .15s,background .15s}
 button:active{transform:scale(.97)}
-button.primary,.tab.active{
-  background:var(--accent);
-  color:#092016;
-  border-color:var(--accent);
-}
-button:disabled{
-  opacity:.5;
-  cursor:wait;
-}
-.layout{
-  display:grid;
-  grid-template-columns:1fr;
-  gap:15px;
-}
-.card{
-  background:linear-gradient(145deg,#122d22,#0d241a);
-  border:1px solid var(--line);
-  border-radius:18px;
-  padding:18px;
-  min-width:0;
-  box-shadow:0 10px 30px #00000020;
-}
+button.primary,.tab.active{background:var(--accent);color:#092016;border-color:var(--accent)}
+button:disabled{opacity:.5;cursor:wait}
+.layout{display:grid;grid-template-columns:1fr;gap:15px}
+.card{background:linear-gradient(145deg,#122d22,#0d241a);border:1px solid var(--line);border-radius:18px;padding:18px;min-width:0;box-shadow:0 10px 30px #00000020}
 h2{font-size:19px;margin:0 0 14px}
-.row{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:10px;
-  flex-wrap:wrap;
-}
+.row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
 .matches{display:grid;gap:10px}
-.match-card{
-  display:block;
-  width:100%;
-  text-align:left;
-  border:1px solid var(--line);
-  border-radius:14px;
-  padding:14px;
-  background:#091e15;
-  margin:0;
-}
-.match-teams{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:7px;
-  flex-wrap:wrap;
-}
-.match-info{
-  display:block;
-  font-size:12px;
-  color:var(--muted);
-  margin-top:9px;
-}
-.formgrid{
-  display:grid;
-  grid-template-columns:1fr;
-  gap:11px;
-}
-label{
-  display:grid;
-  gap:6px;
-  color:var(--muted);
-  font-size:13px;
-}
-input{
-  width:100%;
-  min-width:0;
-  padding:13px;
-  border-radius:11px;
-  border:1px solid var(--line);
-  background:#071a14;
-  color:var(--text);
-  font:inherit;
-}
-input:focus{
-  outline:2px solid var(--accent);
-  border-color:var(--accent);
-}
-.results{
-  display:grid;
-  grid-template-columns:repeat(2,minmax(0,1fr));
-  gap:9px;
-  margin-top:13px;
-}
-.metric{
-  padding:13px;
-  background:#091e15;
-  border:1px solid var(--line);
-  border-radius:13px;
-  min-width:0;
-}
-.metric small{
-  display:block;
-  color:var(--muted);
-  font-size:11px;
-}
-.metric strong{
-  display:block;
-  font-size:19px;
-  margin-top:6px;
-  overflow-wrap:anywhere;
-}
-.notice{
-  font-size:12px;
-  color:var(--muted);
-  border-left:3px solid var(--warn);
-  padding-left:11px;
-}
+.match-card{display:block;width:100%;text-align:left;border:1px solid var(--line);border-radius:14px;padding:14px;background:#091e15;margin:0}
+.match-teams{display:flex;align-items:center;justify-content:space-between;gap:7px;flex-wrap:wrap}
+.match-info{display:block;font-size:12px;color:var(--muted);margin-top:9px}
+.formgrid{display:grid;grid-template-columns:1fr;gap:11px}
+label{display:grid;gap:6px;color:var(--muted);font-size:13px}
+input{width:100%;min-width:0;padding:13px;border-radius:11px;border:1px solid var(--line);background:#071a14;color:var(--text);font:inherit}
+input:focus{outline:2px solid var(--accent);border-color:var(--accent)}
+.results{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin-top:13px}
+.metric{padding:13px;background:#091e15;border:1px solid var(--line);border-radius:13px;min-width:0}
+.metric small{display:block;color:var(--muted);font-size:11px}
+.metric strong{display:block;font-size:19px;margin-top:6px;overflow-wrap:anywhere}
+.notice{font-size:12px;color:var(--muted);border-left:3px solid var(--warn);padding-left:11px}
 .error{color:var(--red)}
 .success{color:var(--accent)}
 .hidden{display:none!important}
-.crest{
-  width:22px;
-  height:22px;
-  object-fit:contain;
-  vertical-align:middle;
-  flex-shrink:0;
-}
-.ai-box{
-  margin-top:14px;
-  padding:15px;
-  border:1px solid var(--line);
-  border-radius:14px;
-  background:#091e15;
-  overflow-wrap:anywhere;
-}
+.crest{width:22px;height:22px;object-fit:contain;vertical-align:middle;flex-shrink:0}
+.ai-box{margin-top:14px;padding:15px;border:1px solid var(--line);border-radius:14px;background:#091e15;overflow-wrap:anywhere}
 .ai-box h3{font-size:15px;margin:0 0 9px}
 .ai-box p{margin:8px 0}
-.history-card{
-  border:1px solid var(--line);
-  background:#091e15;
-  border-radius:13px;
-  padding:14px;
-  margin:10px 0;
-  overflow-wrap:anywhere;
-}
+.history-card{border:1px solid var(--line);background:#091e15;border-radius:13px;padding:14px;margin:10px 0;overflow-wrap:anywhere}
 .history-card button{margin:7px 5px 0 0}
 #shareAppBtn{margin-top:8px}
-.section-intro{
-  color:var(--muted);
-  font-size:13px;
-  margin-top:-5px;
-}
-footer{
-  max-width:1050px;
-  margin:auto;
-  padding:0 16px 30px;
-  color:var(--muted);
-  font-size:12px;
-  text-align:center;
-}
-@media(min-width:760px){
-  .layout{grid-template-columns:1.05fr .95fr}
-  .formgrid{grid-template-columns:1fr 1fr}
-  .card{padding:21px}
-}
+.section-intro{color:var(--muted);font-size:13px;margin-top:-5px}
+footer{max-width:1050px;margin:auto;padding:0 16px 30px;color:var(--muted);font-size:12px;text-align:center}
+@media(min-width:760px){.layout{grid-template-columns:1.05fr .95fr}.formgrid{grid-template-columns:1fr 1fr}.card{padding:21px}}
 </style>
 </head>
 <body>
@@ -283,16 +84,8 @@ footer{
   <div class="hero">
     <span class="hero-label">WELCOME TO BROWNDY PREDICTS</span>
     <h1>SEE THE GAME <span>DIFFERENTLY.</span></h1>
-<p class="hero-description">
-  Football intelligence meets match analysis.
-  Explore upcoming fixtures, statistical predictions,
-  AI-powered insights and match markets — all in one place.
-</p>
-<div class="hero-buttons">
-  <button id="shareAppBtn" class="primary" type="button">
-    📲 Share Browndy Predicts
-  </button>
-</div>
+    <p class="hero-description">Football intelligence meets match analysis. Explore upcoming fixtures, statistical predictions, AI-powered insights and match markets — all in one place.</p>
+    <div class="hero-buttons"><button id="shareAppBtn" class="primary" type="button">📲 Share Browndy Predicts</button></div>
   </div>
 </header>
 <main>
@@ -305,96 +98,46 @@ footer{
 <section id="matches" class="tabpage">
 <div class="layout">
 <div class="card">
-  <div class="row">
-    <div>
-      <h2>Upcoming fixtures</h2>
-      <p class="section-intro">Explore matches and select one for analysis.</p>
-    </div>
-    <button id="reload" class="primary" type="button">Load matches</button>
-  </div>
+  <div class="row"><div><h2>Upcoming fixtures</h2><p class="section-intro">Explore matches and select one for analysis.</p></div><button id="reload" class="primary" type="button">Load matches</button></div>
   <p id="feedStatus" class="muted">Loading fixtures...</p>
   <div id="matchesList" class="matches"></div>
   <h2 style="margin-top:25px">Recent completed results</h2>
-  <div id="recentList" class="matches">
-    <p class="muted">Loading recent results...</p>
-  </div>
+  <div id="recentList" class="matches"><p class="muted">Loading recent results...</p></div>
 </div>
 <div class="card">
   <h2>Analyse a match</h2>
-  <p class="section-intro">
-    Select a fixture or enter two teams to generate a prediction.
-  </p>
+  <p class="section-intro">Select a fixture or enter two teams to generate a prediction.</p>
   <div class="formgrid">
-    <label>Home team
-      <input id="home" placeholder="e.g. Arsenal" maxlength="70">
-    </label>
-<label>Away team
-  <input id="away" placeholder="e.g. Chelsea" maxlength="70">
-</label>
-<label>Competition
-  <input id="competition" placeholder="League match" maxlength="80">
-</label>
-<label>Match date
-  <input id="kickoff" type="datetime-local">
-</label>
+    <label>Home team<input id="home" placeholder="e.g. Arsenal" maxlength="70"></label>
+    <label>Away team<input id="away" placeholder="e.g. Chelsea" maxlength="70"></label>
+    <label>Competition<input id="competition" placeholder="League match" maxlength="80"></label>
+    <label>Match date<input id="kickoff" type="datetime-local"></label>
   </div>
-  <p>
-    <button id="analyse" class="primary" type="button">
-      Generate statistical prediction
-    </button>
-  </p>
-  <p>
-    <button id="runAI" type="button">🤖 Run Gemini + Groq comparison</button>
-  </p>
-  <p id="analysisStatus" class="muted">
-    Select a fixture or enter two teams.
-  </p>
+  <p><button id="analyse" class="primary" type="button">Generate statistical prediction</button></p>
+  <p><button id="runAI" type="button">🤖 Run Gemini + Groq comparison</button></p>
+  <p id="analysisStatus" class="muted">Select a fixture or enter two teams.</p>
   <div id="prediction" class="results hidden"></div>
   <div id="geminiBox" class="ai-box hidden"></div>
-  <p id="dataNote" class="notice">
-    Predictions are estimates, not guarantees.
-  </p>
+  <p id="dataNote" class="notice">Predictions are estimates, not guarantees.</p>
 </div>
 </div>
 </section>
 <section id="analysis" class="tabpage hidden">
 <div class="card">
   <h2>How our predictions work</h2>
-  <p>
-    Browndy Predicts combines statistical football analysis
-    with optional AI match insights.
-  </p>
-  <p>
-    The statistical model estimates scoring rates from
-    recent completed matches and uses a Poisson model
-    to estimate correct scores and match markets.
-  </p>
+  <p>Browndy Predicts combines statistical football analysis with optional AI match insights.</p>
+  <p>The statistical model estimates scoring rates from recent completed matches and uses a Poisson model to estimate correct scores and match markets.</p>
   <p>Gemini and Groq are configured as separate AI providers.</p>
-  <p class="notice">
-    AI analysis is OFF until you choose to run it.
-    External AI requests may consume paid credits or incur charges.
-    Check your provider accounts before using them.
-  </p>
-  <p class="notice">
-    Both AI providers are requested at the same time.
-    If one is unavailable, the other can still return a prediction.
-  </p>
-  <p class="notice">
-    If AI services are unavailable, the statistical prediction remains available.
-  </p>
+  <p class="notice">AI analysis is OFF until you choose to run it. External AI requests may consume paid credits or incur charges. Check your provider accounts before using them.</p>
+  <p class="notice">Both AI providers are requested at the same time. If one is unavailable, the other can still return a prediction.</p>
+  <p class="notice">If AI services are unavailable, the statistical prediction remains available.</p>
 </div>
 </section>
 <section id="history" class="tabpage hidden">
 <div class="card">
-  <div class="row">
-    <h2>Prediction history</h2>
-    <button id="clearHistory" type="button">Clear history</button>
-  </div>
+  <div class="row"><h2>Prediction history</h2><button id="clearHistory" type="button">Clear history</button></div>
   <div class="results" id="historyStats"></div>
-  <p class="muted">
-    Predictions are saved on this device.
-    You can enter the actual score later to check them.
-  </p>
+  <p class="muted">Predictions are saved on this device. You can enter the actual score later to check them.</p>
   <div id="historyList"></div>
 </div>
 </section>
@@ -403,68 +146,55 @@ footer{
   <h2>👑 Premium plan</h2>
   <p class="section-intro">Premium subscription information.</p>
   <div class="results">
-    <div class="metric">
-      <small>Planned monthly price</small>
-      <strong>5,000 FCFA</strong>
-    </div>
-<div class="metric">
-  <small>Payment method</small>
-  <strong>MTN MoMo</strong>
-</div>
+    <div class="metric"><small>Planned monthly price</small><strong>5,000 FCFA</strong></div>
+    <div class="metric"><small>Payment method</small><strong>MTN MoMo</strong></div>
   </div>
-  <p class="notice">
-    Payments are handled through the account page.
-    Payment verification is manual.
-    Do not send money through this screen.
-  </p>
+  <p class="notice">Payments are handled through the account page. Payment verification is manual. Do not send money through an unverified link or personal number.</p>
+  <p><a href="/account.html" style="color:var(--accent)">Open your Browndy Predicts account</a></p>
 </div>
 </section>
 </main>
-<footer>
-  <p><strong>Browndy Predicts</strong></p>
-  <p>Football insights. Statistical predictions. AI match analysis.</p>
-  <p>Predictions are estimates, not guarantees.</p>
-</footer>
-<!-- Account system must load before the main app script. -->
+<footer>© <span id="year"></span> Browndy Predicts. Predictions are estimates, not guarantees.</footer>
 <script src="/account.js"></script>
 <script>
 "use strict";
 const $ = id => document.getElementById(id);
+  $("year").textContent = new Date().getFullYear();
 const API = "/api/football";
+const PREDICTIONS_API = "/api/predictions";
 const STORAGE = "browndy_predictions_v2";
 const TOKEN_KEY = "browndy_customer_token";
-const AI_PROVIDERS = [
-  {name:"Gemini",url:"/api/gemini"},
-  {name:"Groq",url:"/api/groq"}
-];
+const AI_PROVIDERS = [{name:"Gemini",url:"/api/gemini"},{name:"Groq",url:"/api/groq"}];
+
 let matches = [];
 let recentMatches = [];
 let currentStatistical = null;
 let currentAIResults = [];
-function getAuthToken(){
-  return sessionStorage.getItem(TOKEN_KEY) || "";
-}
-function authHeaders(){
-  const token=getAuthToken();
-  return token ? {"Authorization":`Bearer ${token}`} : {};
-}
+let selectedMatch = null;
+
+function getAuthToken(){return sessionStorage.getItem(TOKEN_KEY) || "";}
+function authHeaders(){const token=getAuthToken();return token ? {"Authorization":`Bearer ${token}`} : {};}
+
 function safe(value){
   return String(value ?? "").replace(/[&<>"']/g,char=>({
     "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
   })[char]);
 }
+
 function teamName(team){
   if(typeof team==="string") return team;
   return team?.name || team?.shortName || "Unknown team";
 }
+
 function normalizeTeamName(name){
-  return String(name || "").toLowerCase()
-    .normalize("NFD").replace(/[\u0300-\u036f]/g,"")
-    .replace(/[^a-z0-9]/g,"");
+  return String(name || "").toLowerCase().normalize("NFD")
+    .replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]/g,"");
 }
+
 function sameTeamName(a,b){
   return normalizeTeamName(a)===normalizeTeamName(b);
 }
+
 function scoreParts(score){
   if(!score) return null;
   const home=score.fullTime?.home ?? score.regularTime?.home;
@@ -472,26 +202,27 @@ function scoreParts(score){
   if(home==null || away==null) return null;
   return {home:Number(home),away:Number(away)};
 }
-function matchScore(match){
-  return scoreParts(match.score);
-}
+
+function matchScore(match){return scoreParts(match.score);}
+
 function getHistory(){
   try{
     const data=JSON.parse(localStorage.getItem(STORAGE) || "[]");
     return Array.isArray(data) ? data : [];
-  }catch{
-    return [];
-  }
+  }catch{return [];}
 }
+
 function saveHistory(history){
   localStorage.setItem(STORAGE,JSON.stringify(history));
 }
+
 function dateText(value){
   if(!value) return "Date unavailable";
   const date=new Date(value);
   if(Number.isNaN(date.getTime())) return String(value);
   return date.toLocaleString();
 }
+
 function dateInputValue(value){
   if(!value) return "";
   const date=new Date(value);
@@ -499,87 +230,123 @@ function dateInputValue(value){
   const local=new Date(date.getTime()-date.getTimezoneOffset()*60000);
   return local.toISOString().slice(0,16);
 }
+
 function competitionName(match){
   return match.competition?.name || match.competition || "Football";
 }
+
 function crest(team){
   const image=team?.crest;
-  return image
-    ? `<img class="crest" src="${safe(image)}" alt="" loading="lazy">`
-    : "";
+  return image ? `<img class="crest" src="${safe(image)}" alt="" loading="lazy">` : "";
 }
+
 function matchCard(match,index,isRecent=false){
   const home=teamName(match.homeTeam);
   const away=teamName(match.awayTeam);
   const score=matchScore(match);
   const result=score ? `${score.home} - ${score.away}` : "";
   const status=isRecent ? `Finished ${result}` : dateText(match.utcDate);
-  return `
-    <button type="button" class="match-card"
-      data-match="${index}" data-recent="${isRecent}">
-      <span class="match-teams">
-        ${crest(match.homeTeam)}
-        <strong>${safe(home)}</strong>
-        <span>vs</span>
-        <strong>${safe(away)}</strong>
-        ${crest(match.awayTeam)}
-      </span>
-      <span class="match-info">
-        ${safe(competitionName(match))} · ${safe(status)}
-      </span>
-    </button>`;
+
+  return `<button type="button" class="match-card" data-match="${index}" data-recent="${isRecent}">
+    <span class="match-teams">
+      ${crest(match.homeTeam)}
+      <strong>${safe(home)}</strong>
+      <span>vs</span>
+      <strong>${safe(away)}</strong>
+      ${crest(match.awayTeam)}
+    </span>
+    <span class="match-info">${safe(competitionName(match))} · ${safe(status)}</span>
+  </button>`;
 }
+
 async function loadMatches(){
   $("feedStatus").textContent="Loading fixtures...";
   $("reload").disabled=true;
+
   try{
     const response=await fetch(API,{
       headers:authHeaders(),
       cache:"no-store"
     });
+
     const data=await response.json().catch(()=>({}));
+
     if(!response.ok){
       throw new Error(data.error || `Unable to load fixtures (${response.status}).`);
     }
+
     matches=data.matches || data.upcoming || [];
     recentMatches=data.recentMatches || data.recent || [];
+
     if(!Array.isArray(matches)) matches=[];
     if(!Array.isArray(recentMatches)) recentMatches=[];
+
     $("matchesList").innerHTML=matches.length
       ? matches.map((m,i)=>matchCard(m,i)).join("")
       : "<p>No upcoming fixtures available.</p>";
+
     $("recentList").innerHTML=recentMatches.length
       ? recentMatches.map((m,i)=>matchCard(m,i,true)).join("")
       : "<p>No recent results available.</p>";
+
     $("feedStatus").textContent=`${matches.length} upcoming fixtures loaded.`;
+
   }catch(error){
     $("feedStatus").textContent=error.message || "Unable to load fixtures.";
   }finally{
     $("reload").disabled=false;
   }
 }
+
+function clearSelectedMatch(){
+  selectedMatch=null;
+}
+
 document.addEventListener("click",event=>{
   const card=event.target.closest("[data-match]");
   if(!card) return;
+
   const index=Number(card.dataset.match);
-  const source=card.dataset.recent==="true" ? recentMatches : matches;
+  const isRecent=card.dataset.recent==="true";
+  const source=isRecent ? recentMatches : matches;
   const match=source[index];
+
   if(!match) return;
+
   $("home").value=teamName(match.homeTeam);
   $("away").value=teamName(match.awayTeam);
   $("competition").value=competitionName(match);
   $("kickoff").value=dateInputValue(match.utcDate);
-  document.querySelector('[data-tab="matches"]')?.classList.remove("active");
-  document.querySelectorAll(".tabpage").forEach(page=>{
-    page.classList.add("hidden");
-  });
+
+  selectedMatch=isRecent ? null : match;
+
+  $("analysisStatus").textContent=isRecent
+    ? "Completed match selected. It will not be saved as a new upcoming fixture."
+    : "Fixture selected. You can now generate a prediction.";
+
   document.querySelectorAll("[data-tab]").forEach(tab=>{
-    tab.classList.remove("active");
+    tab.classList.toggle("active",tab.dataset.tab==="matches");
   });
-  document.querySelector('[data-tab="matches"]')?.classList.add("active");
-  $("matches").classList.remove("hidden");
+
+  document.querySelectorAll(".tabpage").forEach(page=>{
+    page.classList.toggle("hidden",page.id!=="matches");
+  });
+
   $("home").focus();
 });
+
+["home","away","competition","kickoff"].forEach(id=>{
+  $(id).addEventListener("input",()=>{
+    if(selectedMatch){
+      const same=
+        sameTeamName($("home").value,teamName(selectedMatch.homeTeam)) &&
+        sameTeamName($("away").value,teamName(selectedMatch.awayTeam));
+
+      if(!same) clearSelectedMatch();
+    }
+  });
+});
+
 function completedMatches(team){
   return recentMatches.filter(match=>{
     const score=matchScore(match);
@@ -589,117 +356,102 @@ function completedMatches(team){
     );
   }).slice(0,10);
 }
+
 function poisson(lambda,k){
   let factorial=1;
   for(let i=1;i<=k;i++) factorial*=i;
   return Math.exp(-lambda)*Math.pow(lambda,k)/factorial;
 }
+
 function teamRates(team){
   const games=completedMatches(team);
   let scored=0,conceded=0,count=0;
+
   games.forEach(match=>{
     const score=matchScore(match);
     if(!score) return;
+
     const isHome=sameTeamName(teamName(match.homeTeam),team);
     scored+=isHome ? score.home : score.away;
     conceded+=isHome ? score.away : score.home;
     count++;
   });
+
   if(!count) return {attack:1.35,defence:1.1};
+
   return {
     attack:Math.max(0.3,scored/count),
     defence:Math.max(0.3,conceded/count)
   };
 }
+
 function buildModel(home,away){
   const h=teamRates(home);
   const a=teamRates(away);
+
   return {
     homeGoals:Math.max(0.3,(h.attack+a.defence)/2),
     awayGoals:Math.max(0.3,(a.attack+h.defence)/2)
   };
 }
+
 function makePrediction(home,away){
   const model=buildModel(home,away);
+
   let bestScore={home:0,away:0,probability:0};
   let homeWin=0,draw=0,awayWin=0,over25=0,btts=0;
+
   for(let h=0;h<=6;h++){
     for(let a=0;a<=6;a++){
-      const probability=
-        poisson(model.homeGoals,h)*poisson(model.awayGoals,a);
+      const probability=poisson(model.homeGoals,h)*poisson(model.awayGoals,a);
+
       if(probability>bestScore.probability){
         bestScore={home:h,away:a,probability};
       }
+
       if(h>a) homeWin+=probability;
       else if(h===a) draw+=probability;
       else awayWin+=probability;
+
       if(h+a>2.5) over25+=probability;
       if(h>0 && a>0) btts+=probability;
     }
   }
-  const outcome=homeWin>=draw && homeWin>=awayWin
-    ? "Home win"
-    : awayWin>=draw && awayWin>=homeWin
-      ? "Away win" : "Draw";
+
+  const outcome=
+    homeWin>=draw && homeWin>=awayWin ? "Home win" :
+    awayWin>=draw && awayWin>=homeWin ? "Away win" : "Draw";
+
   return {
-    home,
-    away,
+    home,away,
     score:`${bestScore.home}-${bestScore.away}`,
     outcome,
-    doubleChance:homeWin>=awayWin ? "1X" : "X2",
-    goals:over25>=0.5 ? "Over 2.5" : "Under 2.5",
-    btts:btts>=0.5 ? "Yes" : "No",
+    doubleChance:homeWin>=awayWin ? "1X":"X2",
+    goals:over25>=0.5 ? "Over 2.5":"Under 2.5",
+    btts:btts>=0.5 ? "Yes":"No",
     probabilities:{home:homeWin,draw,away:awayWin,over25,btts},
     model
   };
 }
+
 function pct(value){
   return `${Math.round(value*100)}%`;
 }
+
 function showPrediction(prediction){
   $("prediction").innerHTML=`
-    <div class="metric">
-      <small>Correct score</small>
-      <strong>${safe(prediction.score)}</strong>
-    </div>
-    <div class="metric">
-      <small>Match outcome</small>
-      <strong>${safe(prediction.outcome)}</strong>
-    </div>
-    <div class="metric">
-      <small>Double chance</small>
-      <strong>${safe(prediction.doubleChance)}</strong>
-    </div>
-    <div class="metric">
-      <small>Goals market</small>
-      <strong>${safe(prediction.goals)}</strong>
-    </div>
-    <div class="metric">
-      <small>Both teams to score</small>
-      <strong>${safe(prediction.btts)}</strong>
-    </div>
-    <div class="metric">
-      <small>Home win probability</small>
-      <strong>${pct(prediction.probabilities.home)}</strong>
-    </div>
-    <div class="metric">
-      <small>Draw probability</small>
-      <strong>${pct(prediction.probabilities.draw)}</strong>
-    </div>
-    <div class="metric">
-      <small>Away win probability</small>
-      <strong>${pct(prediction.probabilities.away)}</strong>
-    </div>
-    <div class="metric">
-      <small>Over 2.5 probability</small>
-      <strong>${pct(prediction.probabilities.over25)}</strong>
-    </div>
-    <div class="metric">
-      <small>BTTS Yes probability</small>
-      <strong>${pct(prediction.probabilities.btts)}</strong>
-    </div>
-    <p class="notice">Statistical estimates are not guaranteed results.</p>
-  `;
+    <div class="metric"><small>Correct score</small><strong>${safe(prediction.score)}</strong></div>
+    <div class="metric"><small>Match outcome</small><strong>${safe(prediction.outcome)}</strong></div>
+    <div class="metric"><small>Double chance</small><strong>${safe(prediction.doubleChance)}</strong></div>
+    <div class="metric"><small>Goals market</small><strong>${safe(prediction.goals)}</strong></div>
+    <div class="metric"><small>Both teams to score</small><strong>${safe(prediction.btts)}</strong></div>
+    <div class="metric"><small>Home win probability</small><strong>${pct(prediction.probabilities.home)}</strong></div>
+    <div class="metric"><small>Draw probability</small><strong>${pct(prediction.probabilities.draw)}</strong></div>
+    <div class="metric"><small>Away win probability</small><strong>${pct(prediction.probabilities.away)}</strong></div>
+    <div class="metric"><small>Over 2.5 probability</small><strong>${pct(prediction.probabilities.over25)}</strong></div>
+    <div class="metric"><small>BTTS Yes probability</small><strong>${pct(prediction.probabilities.btts)}</strong></div>
+    <p class="notice">Statistical estimates are not guaranteed results.</p>`;
+
   $("prediction").classList.remove("hidden");
 }
 function recentDataForTeams(home,away){
@@ -708,10 +460,12 @@ function recentDataForTeams(home,away){
     away:completedMatches(away)
   };
 }
+
 function parseScore(value){
   const match=String(value || "").match(/(\d+)\s*[-:]\s*(\d+)/);
   return match ? `${match[1]}-${match[2]}` : null;
 }
+
 function normalizeOutcome(value){
   const text=String(value || "").toLowerCase();
   if(text.includes("home")) return "Home win";
@@ -719,28 +473,33 @@ function normalizeOutcome(value){
   if(text.includes("draw")) return "Draw";
   return value || "";
 }
+
 function normalizeDouble(value){
   const text=String(value || "").toUpperCase();
   return ["1X","X2","12"].includes(text) ? text : "";
 }
+
 function normalizeGoals(value){
   const text=String(value || "").toLowerCase();
   if(text.includes("over")) return "Over 2.5";
   if(text.includes("under")) return "Under 2.5";
   return "";
 }
+
 function normalizeBtts(value){
   const text=String(value || "").toLowerCase();
   if(text.includes("yes")) return "Yes";
   if(text.includes("no")) return "No";
   return "";
 }
+
 function extractPrediction(data){
   if(typeof data==="string"){
-    try{data=JSON.parse(data)}
-    catch{return {raw:data}}
+    try{data=JSON.parse(data);}catch{return {raw:data};}
   }
+
   const result=data?.prediction || data?.result || data || {};
+
   return {
     score:parseScore(result.score || result.correctScore),
     outcome:normalizeOutcome(result.outcome || result.matchWinner),
@@ -750,14 +509,15 @@ function extractPrediction(data){
     raw:result.analysis || result.explanation || result.text || ""
   };
 }
+
 function majority(values){
   const counts={};
   values.filter(Boolean).forEach(value=>{
     counts[value]=(counts[value] || 0)+1;
   });
-  return Object.entries(counts)
-    .sort((a,b)=>b[1]-a[1])[0]?.[0] || "";
+  return Object.entries(counts).sort((a,b)=>b[1]-a[1])[0]?.[0] || "";
 }
+
 function consensusPrediction(results){
   return {
     score:majority(results.map(r=>r.score)),
@@ -767,6 +527,7 @@ function consensusPrediction(results){
     btts:majority(results.map(r=>r.btts))
   };
 }
+
 async function callAI(provider,home,away,competition){
   const response=await fetch(provider.url,{
     method:"POST",
@@ -781,75 +542,151 @@ async function callAI(provider,home,away,competition){
       recentData:recentDataForTeams(home,away)
     })
   });
+
   const data=await response.json().catch(()=>({}));
+
   if(!response.ok){
     throw new Error(data.error || `${provider.name} request failed (${response.status}).`);
   }
+
   return {
     provider:provider.name,
     ...extractPrediction(data)
   };
 }
-function savePrediction(prediction,type="Statistical"){
+
+async function savePrediction(prediction,type="Statistical"){
   const history=getHistory();
-  history.unshift({
-    id:crypto.randomUUID(),
+
+  const localItem={
+    id:(crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`),
     date:new Date().toISOString(),
     home:prediction.home,
     away:prediction.away,
-    score:prediction.score,
-    outcome:prediction.outcome,
-    doubleChance:prediction.doubleChance,
-    goals:prediction.goals,
-    btts:prediction.btts,
+    score:prediction.score || "",
+    outcome:prediction.outcome || "",
+    doubleChance:prediction.doubleChance || "",
+    goals:prediction.goals || "",
+    btts:prediction.btts || "",
     type,
-    actual:null
-  });
+    actual:null,
+    matchId:selectedMatch?.id ? String(selectedMatch.id) : null,
+    competition:$("competition").value.trim() || "Football",
+    kickoff:selectedMatch?.utcDate || $("kickoff").value || null,
+    databaseStatus:"Device only"
+  };
+
+  history.unshift(localItem);
   saveHistory(history.slice(0,100));
   renderHistory();
+
+  if(!localItem.matchId){
+    $("analysisStatus").textContent="Prediction saved on this device. Select an official upcoming fixture to link it to the online results tracker.";
+    return;
+  }
+
+  if(!getAuthToken()){
+    $("analysisStatus").textContent="Prediction saved on this device. Log in to save it to your online account.";
+    return;
+  }
+
+  try{
+    const response=await fetch(PREDICTIONS_API,{
+      method:"POST",
+      headers:{
+        "Content-Type":"application/json",
+        ...authHeaders()
+      },
+      body:JSON.stringify({
+        match_id:localItem.matchId,
+        home_team:localItem.home,
+        away_team:localItem.away,
+        competition:localItem.competition,
+        kickoff:localItem.kickoff,
+        predicted_score:localItem.score,
+        predicted_outcome:localItem.outcome,
+        predicted_double_chance:localItem.doubleChance,
+        predicted_goals:localItem.goals,
+        predicted_btts:localItem.btts
+      })
+    });
+
+    const data=await response.json().catch(()=>({}));
+
+    if(!response.ok){
+      throw new Error(data.error || `Online save failed (${response.status}).`);
+    }
+
+    localItem.databaseStatus="Saved to online account";
+    localItem.databaseId=data.id || null;
+
+    const updated=getHistory();
+    const found=updated.find(item=>item.id===localItem.id);
+
+    if(found){
+      found.databaseStatus=localItem.databaseStatus;
+      found.databaseId=localItem.databaseId;
+      saveHistory(updated);
+      renderHistory();
+    }
+
+    $("analysisStatus").textContent="Prediction saved on this device and to your online account.";
+
+  }catch(error){
+    $("analysisStatus").textContent=`Saved on this device, but online saving failed: ${error.message}`;
+  }
 }
-$("analyse").addEventListener("click",()=>{
-  const home=$("home").value.trim();
-  const away=$("away").value.trim();
+  $("analyse").addEventListener("click",async()=>{
+  const home=$("home").value.trim(),away=$("away").value.trim();
+
   if(!home || !away){
     $("analysisStatus").textContent="Enter both team names first.";
     return;
   }
+
   if(sameTeamName(home,away)){
     $("analysisStatus").textContent="Choose two different teams.";
     return;
   }
+
   currentStatistical=makePrediction(home,away);
   showPrediction(currentStatistical);
-  $("analysisStatus").textContent="Statistical analysis completed.";
-  $("dataNote").textContent=
-    "Based on available recent results and a statistical model.";
-  savePrediction(currentStatistical,"Statistical");
+
+  $("analysisStatus").textContent="Statistical analysis completed. Saving prediction...";
+  $("dataNote").textContent="Based on available recent results and a statistical model.";
+
+  await savePrediction(currentStatistical,"Statistical");
 });
+
 $("runAI").addEventListener("click",async()=>{
-  const home=$("home").value.trim();
-  const away=$("away").value.trim();
+  const home=$("home").value.trim(),away=$("away").value.trim();
+
   if(!home || !away){
     $("analysisStatus").textContent="Enter both team names first.";
     return;
   }
+
   if(!getAuthToken()){
     $("analysisStatus").textContent="Please log in before using AI analysis.";
     return;
   }
-  if(!confirm("AI analysis uses external providers. Your API requests may consume paid credits. Continue?")){
-    return;
-  }
+
+  if(!confirm("AI analysis uses external providers. Your API requests may consume paid credits. Continue?")) return;
+
   $("analysisStatus").textContent="Running Gemini and Groq analysis...";
   $("geminiBox").classList.remove("hidden");
   $("geminiBox").textContent="AI analysis in progress...";
+
   const competition=$("competition").value.trim();
+
   const results=await Promise.allSettled(
     AI_PROVIDERS.map(provider=>callAI(provider,home,away,competition))
   );
+
   currentAIResults=results
     .filter(result=>result.status==="fulfilled")
     .map(result=>result.value);
+
   if(!currentAIResults.length){
     $("analysisStatus").textContent="AI analysis failed.";
     $("geminiBox").textContent=results
@@ -857,7 +694,9 @@ $("runAI").addEventListener("click",async()=>{
       .join("\n");
     return;
   }
+
   const consensus=consensusPrediction(currentAIResults);
+
   $("geminiBox").innerHTML=`
     <h3>AI Analysis Results</h3>
     ${currentAIResults.map(result=>`
@@ -877,9 +716,11 @@ $("runAI").addEventListener("click",async()=>{
     <p>Goals: ${safe(consensus.goals || "No consensus")}</p>
     <p>BTTS: ${safe(consensus.btts || "No consensus")}</p>
   `;
+
   $("analysisStatus").textContent=
-    `${currentAIResults.length} AI provider(s) responded.`;
-  savePrediction({
+    `${currentAIResults.length} AI provider(s) responded. Saving AI prediction...`;
+
+  await savePrediction({
     home,away,
     score:consensus.score || "",
     outcome:consensus.outcome || "",
@@ -888,94 +729,149 @@ $("runAI").addEventListener("click",async()=>{
     btts:consensus.btts || ""
   },"AI consensus");
 });
+
 function grade(item){
   if(!item.actual) return null;
+
   const actual=item.actual;
+  const total=actual.home+actual.away;
+
+  const actualOutcome=
+    actual.home>actual.away ? "Home win" :
+    actual.home<actual.away ? "Away win" : "Draw";
+
   return {
     score:item.score===`${actual.home}-${actual.away}`,
+
+    outcome:!item.outcome || item.outcome===actualOutcome,
+
+    doubleChance:!item.doubleChance ||
+      (item.doubleChance==="1X" ? actual.home>=actual.away :
+       item.doubleChance==="X2" ? actual.away>=actual.home :
+       actual.home!==actual.away),
+
     btts:(actual.home>0 && actual.away>0 ? "Yes":"No")===item.btts,
-    goals:(actual.home+actual.away>2.5 ? "Over 2.5":"Under 2.5")===item.goals
+
+    goals:(total>2.5 ? "Over 2.5":"Under 2.5")===item.goals
   };
 }
+
 function renderHistory(){
   const history=getHistory();
   const checked=history.filter(item=>item.actual);
+
   const correct=checked.filter(item=>{
     const result=grade(item);
-    return result && (result.score || result.btts || result.goals);
+    return result && (
+      result.score || result.outcome ||
+      result.doubleChance || result.btts || result.goals
+    );
   });
-  $("historyStats").textContent=
-    `${history.length} predictions · ${checked.length} results entered · ${correct.length} with at least one correct market`;
-  $("historyList").innerHTML=history.length
-    ? history.map(item=>{
-      const result=grade(item);
-      return `
-        <div class="history-card" data-history="${safe(item.id)}">
-          <strong>${safe(item.home)} vs ${safe(item.away)}</strong>
-          <p>Prediction: ${safe(item.score || "Not available")}</p>
-          <p>Type: ${safe(item.type)}</p>
-          <p>Date: ${safe(dateText(item.date))}</p>
-          ${
-            item.actual
-              ? `<p>Entered result: ${item.actual.home}-${item.actual.away}</p>
-                 <p>Correct score: ${result.score?"Yes":"No"} · BTTS: ${result.btts?"Yes":"No"} · Goals: ${result.goals?"Yes":"No"}</p>`
-              : `<button type="button" data-action="result">Enter result</button>`
-          }
-          <button type="button" data-action="delete">Delete</button>
-        </div>`;
-    }).join("")
-    : "<p>No predictions saved yet.</p>";
+
+  $("historyStats").innerHTML=`
+    <div class="metric"><small>Predictions</small><strong>${history.length}</strong></div>
+    <div class="metric"><small>Results entered</small><strong>${checked.length}</strong></div>
+    <div class="metric"><small>With a correct market</small><strong>${correct.length}</strong></div>
+  `;
+
+  $("historyList").innerHTML=history.length ? history.map(item=>{
+    const result=grade(item);
+
+    return `
+      <div class="history-card" data-history="${safe(item.id)}">
+        <strong>${safe(item.home)} vs ${safe(item.away)}</strong>
+        <p>Prediction: ${safe(item.score || "Not available")}</p>
+        <p>Type: ${safe(item.type)}</p>
+        <p>Date: ${safe(dateText(item.date))}</p>
+        <p>Online status: ${safe(item.databaseStatus || "Device only")}</p>
+
+        ${item.actual ? `
+          <p>Entered result: ${item.actual.home}-${item.actual.away}</p>
+          <p>
+            Correct score: ${result.score?"Yes":"No"} ·
+            Outcome: ${result.outcome?"Yes":"No"} ·
+            Double chance: ${result.doubleChance?"Yes":"No"} ·
+            BTTS: ${result.btts?"Yes":"No"} ·
+            Goals: ${result.goals?"Yes":"No"}
+          </p>
+        ` : `
+          <button type="button" data-action="result">Enter result</button>
+        `}
+
+        <button type="button" data-action="delete">Delete</button>
+      </div>
+    `;
+  }).join("") : "<p>No predictions saved yet.</p>";
 }
+
 $("historyList").addEventListener("click",event=>{
   const button=event.target.closest("[data-action]");
   if(!button) return;
+
   const card=button.closest("[data-history]");
   const id=card?.dataset.history;
   if(!id) return;
+
   const history=getHistory();
   const index=history.findIndex(item=>item.id===id);
   if(index<0) return;
+
   if(button.dataset.action==="delete"){
     if(!confirm("Delete this prediction?")) return;
+
     history.splice(index,1);
     saveHistory(history);
     renderHistory();
   }
+
   if(button.dataset.action==="result"){
     const entered=prompt("Enter the final score, for example 2-1:");
+
     if(entered===null) return;
+
     const score=parseScore(entered);
+
     if(!score){
       alert("Please enter a valid score, for example 2-1.");
       return;
     }
+
     const [home,away]=score.split("-").map(Number);
+
     history[index].actual={home,away};
+
     saveHistory(history);
     renderHistory();
   }
 });
+
 $("clearHistory").addEventListener("click",()=>{
-  if(!confirm("Clear all saved predictions and results?")) return;
+  if(!confirm("Clear all saved predictions and results from this device?")) return;
+
   saveHistory([]);
   renderHistory();
 });
+
 $("reload").addEventListener("click",loadMatches);
+
 document.querySelectorAll("[data-tab]").forEach(button=>{
   button.addEventListener("click",()=>{
     const selected=button.dataset.tab;
+
     document.querySelectorAll("[data-tab]").forEach(tab=>{
       tab.classList.toggle("active",tab===button);
     });
+
     document.querySelectorAll(".tabpage").forEach(page=>{
       page.classList.toggle("hidden",page.id!==selected);
     });
   });
 });
+
 renderHistory();
 loadMatches();
 </script>
-<!-- Share Browndy Predicts with friends -->
+
 <script>
 $("shareAppBtn").addEventListener("click",async()=>{
   const shareData={
@@ -983,6 +879,7 @@ $("shareAppBtn").addEventListener("click",async()=>{
     text:"Check out Browndy Predicts for football fixtures, predictions and AI match analysis!",
     url:"https://browndy-predicts.pages.dev"
   };
+
   try{
     if(navigator.share){
       await navigator.share(shareData);
@@ -999,7 +896,7 @@ $("shareAppBtn").addEventListener("click",async()=>{
   }
 });
 </script>
-<!-- Register the existing service worker -->
+
 <script>
 if("serviceWorker" in navigator){
   window.addEventListener("load",()=>{
@@ -1008,5 +905,6 @@ if("serviceWorker" in navigator){
   });
 }
 </script>
+
 </body>
 </html>
