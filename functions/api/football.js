@@ -109,8 +109,6 @@ export async function onRequest(context) {
     }, 405);
   }
 
-  // Viewing football fixtures is public.
-  // Only POST requests require Premium authentication.
   if (request.method === "POST") {
     const access = await requirePremium(request, env);
 
@@ -133,6 +131,8 @@ export async function onRequest(context) {
 
   try {
     const today = new Date();
+
+    // Upcoming matches: next 30 days.
     const upcomingRanges = [];
 
     for (let i = 0; i < 3; i++) {
@@ -152,18 +152,18 @@ export async function onRequest(context) {
       return apiRequest(url, token);
     });
 
+    // Completed matches: look back 60 days in 10-day periods.
+    // This gives saved predictions more time to find their results.
     const recentRanges = [];
-    let rangeEnd = today;
 
-    for (let i = 0; i < 4; i++) {
-      const rangeStart = shiftDate(rangeEnd, -8);
+    for (let i = 0; i < 6; i++) {
+      const rangeEnd = shiftDate(today, -(i * 10));
+      const rangeStart = shiftDate(rangeEnd, -9);
 
       recentRanges.push({
         from: dateString(rangeStart),
         to: dateString(rangeEnd)
       });
-
-      rangeEnd = shiftDate(rangeStart, -1);
     }
 
     const recentRequests = recentRanges.map(range => {
@@ -173,15 +173,21 @@ export async function onRequest(context) {
       return apiRequest(url, token);
     });
 
+    // Fetch all ranges.
     const results = await Promise.allSettled([
       ...upcomingRequests,
       ...recentRequests
     ]);
 
+    // ------------------------------
+    // UPCOMING MATCHES
+    // ------------------------------
+
     const upcomingResults = results.slice(0, 3);
 
-    const successfulUpcomingResults = upcomingResults
-      .filter(result => result.status === "fulfilled");
+    const successfulUpcomingResults = upcomingResults.filter(
+      result => result.status === "fulfilled"
+    );
 
     const upcomingAvailable = successfulUpcomingResults.length > 0;
 
@@ -206,9 +212,15 @@ export async function onRequest(context) {
       .map(formatMatch)
       .sort((a, b) => new Date(a.utcDate) - new Date(b.utcDate));
 
-    const successfulRecentResults = results
-      .slice(3)
-      .filter(result => result.status === "fulfilled");
+    // ------------------------------
+    // RECENT COMPLETED RESULTS
+    // ------------------------------
+
+    const recentResults = results.slice(3);
+
+    const successfulRecentResults = recentResults.filter(
+      result => result.status === "fulfilled"
+    );
 
     const recentResultsAvailable = successfulRecentResults.length > 0;
 
@@ -220,40 +232,60 @@ export async function onRequest(context) {
       );
     }
 
+    // Remove duplicate matches.
     const uniqueRecentMatches = Array.from(
       new Map(recentMatches.map(match => [match.id, match])).values()
     );
 
+    // Keep only matches with official completed scores.
     recentMatches = uniqueRecentMatches
-      .filter(match => ["FINISHED", "AWARDED"].includes(match.status))
+      .filter(match =>
+        ["FINISHED", "AWARDED"].includes(match.status) &&
+        match.score?.fullTime?.home !== null &&
+        match.score?.fullTime?.away !== null
+      )
       .map(formatMatch)
       .sort((a, b) => new Date(b.utcDate) - new Date(a.utcDate));
 
     const failedRecentRequests =
       recentRequests.length - successfulRecentResults.length;
 
+    // ------------------------------
+    // RESPONSE
+    // ------------------------------
+
     return jsonResponse({
       success: upcomingAvailable || recentResultsAvailable,
       provider: "Football-Data.org",
+
       matches: upcomingMatches,
       recentMatches,
+
       upcomingAvailable,
       upcomingError: upcomingErrors.length
         ? upcomingErrors.join("; ")
         : null,
-      upcomingRequestsSuccessful: successfulUpcomingResults.length,
+
+      upcomingRequestsSuccessful:
+        successfulUpcomingResults.length,
+
       recentResultsAvailable,
+
       statisticsAvailable: false,
+
       recentMatchesCount: recentMatches.length,
+
       upcomingMessage: upcomingAvailable
         ? `${upcomingMatches.length} upcoming matches loaded for the next 30 days.`
         : "Upcoming matches could not be loaded. Please try again later.",
+
       recentResultsMessage: recentResultsAvailable
-        ? `${recentMatches.length} recent results loaded.` +
+        ? `${recentMatches.length} completed results loaded from the last 60 days.` +
           (failedRecentRequests > 0
             ? ` ${failedRecentRequests} recent-results requests failed.`
             : "")
         : "Recent results could not be loaded. Please check your API plan and try again.",
+
       updatedAt: new Date().toISOString()
     });
 
