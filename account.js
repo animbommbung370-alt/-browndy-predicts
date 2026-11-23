@@ -210,18 +210,25 @@
 
     function lockAccount() {
       document.documentElement.classList.add("bp-account-locked");
+      document.documentElement.dataset.premiumActive = "false";
+
       overlay.style.display = "flex";
       button.style.display = "none";
     }
 
     function unlockAccount() {
       document.documentElement.classList.remove("bp-account-locked");
+      document.documentElement.dataset.premiumActive = "true";
+
       overlay.style.display = "none";
       button.style.display = "block";
 
       window.dispatchEvent(
         new CustomEvent("browndy:access-changed", {
-          detail: { premiumActive: true }
+          detail: {
+            active: true,
+            premiumActive: true
+          }
         })
       );
     }
@@ -254,6 +261,7 @@
     function showLogin(messageText = "Create an account or log in.") {
       $("bp-account-auth").style.display = "block";
       $("bp-account-logged").style.display = "none";
+
       message(messageText);
       lockAccount();
     }
@@ -279,6 +287,7 @@
           "Premium ACTIVE until " + data.premium_until;
 
         paymentSection.style.display = "none";
+
         message("Your Premium subscription is active.");
 
         unlockAccount();
@@ -380,10 +389,12 @@
       try {
         await apiRequest("/auth", {
           method: "POST",
-          body: JSON.stringify({ action: "logout" })
+          body: JSON.stringify({
+            action: "logout"
+          })
         });
       } catch (error) {
-        // The local session is cleared even if the request fails.
+        // Clear the local session even if the request fails.
       }
 
       sessionStorage.removeItem(TOKEN_KEY);
@@ -403,7 +414,10 @@
         await refreshAccount();
       } catch (error) {
         sessionStorage.removeItem(TOKEN_KEY);
-        showLogin("Your session has expired. Please log in again.");
+
+        showLogin(
+          "Your session has expired. Please log in again."
+        );
       }
     });
 
@@ -419,10 +433,8 @@
 
     $("bp-logout").addEventListener("click", logout);
 
-    // Keep the account screen locked while checking access.
     lockAccount();
 
-    // Check the customer's existing subscription on page opening.
     async function checkExistingSession() {
       if (!getToken()) {
         showLogin();
@@ -432,29 +444,31 @@
       try {
         message("Checking your account and subscription...");
         await refreshAccount();
+
       } catch (error) {
         sessionStorage.removeItem(TOKEN_KEY);
+
         showLogin("Please log in again.");
       }
     }
 
     checkExistingSession();
 
-    // Recheck the subscription when the customer returns to the app.
     document.addEventListener("visibilitychange", async () => {
       if (document.visibilityState !== "visible") return;
       if (!getToken()) return;
 
       try {
         await refreshAccount();
+
       } catch (error) {
         sessionStorage.removeItem(TOKEN_KEY);
+
         showLogin("Your session has expired. Please log in again.");
       }
     });
   }
 
-  // Hide the main app immediately, before the account check runs.
   document.documentElement.classList.add("bp-account-locked");
 
   if (document.readyState === "loading") {
