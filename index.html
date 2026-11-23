@@ -25,6 +25,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Browndy Predicts">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
 <style>
 :root{--bg:#06150f;--panel:#10271e;--panel2:#16372a;--line:#294c3a;--text:#f4fff7;--muted:#a9c0b4;--accent:#8df0ad;--warn:#ffda8a;--red:#ffaaa0}
 *{box-sizing:border-box}
@@ -81,6 +82,7 @@ footer{max-width:1050px;margin:auto;padding:0 16px 30px;color:var(--muted);font-
 @media(min-width:760px){.layout{grid-template-columns:1.05fr .95fr}.formgrid{grid-template-columns:1fr 1fr}.card{padding:21px}}
 </style>
 </head>
+
 <body>
 <header>
   <div class="brand">⚽ FOOTBALL INTELLIGENCE • MATCH ANALYSIS</div>
@@ -112,11 +114,11 @@ footer{max-width:1050px;margin:auto;padding:0 16px 30px;color:var(--muted);font-
     </div>
     <button id="reload" class="primary" type="button">Load matches</button>
   </div>
-  <p id="feedStatus" class="muted">Loading fixtures...</p>
+  <p id="feedStatus" class="muted">Waiting for account approval...</p>
   <div id="matchesList" class="matches"></div>
   <h2 style="margin-top:25px">Recent completed results</h2>
   <div id="recentList" class="matches">
-    <p class="muted">Loading recent results...</p>
+    <p class="muted">Waiting for account approval...</p>
   </div>
 </div>
 
@@ -131,7 +133,7 @@ footer{max-width:1050px;margin:auto;padding:0 16px 30px;color:var(--muted);font-
   </div>
   <p><button id="analyse" class="primary" type="button">Generate statistical prediction</button></p>
   <p><button id="runAI" type="button">🤖 Run Gemini + Groq comparison</button></p>
-  <p id="analysisStatus" class="muted">Select a fixture or enter two teams.</p>
+  <p id="analysisStatus" class="muted">Your account must be approved before using predictions.</p>
   <div id="prediction" class="results hidden"></div>
   <div id="geminiBox" class="ai-box hidden"></div>
   <p id="dataNote" class="notice">Predictions are estimates, not guarantees.</p>
@@ -168,11 +170,11 @@ footer{max-width:1050px;margin:auto;padding:0 16px 30px;color:var(--muted);font-
   <h2>👑 Premium plan</h2>
   <p class="section-intro">Premium subscription information.</p>
   <div class="results">
-    <div class="metric"><small>Planned monthly price</small><strong>5,000 FCFA</strong></div>
+    <div class="metric"><small>Monthly subscription</small><strong>5,000 FCFA</strong></div>
     <div class="metric"><small>Payment method</small><strong>MTN MoMo</strong></div>
   </div>
-  <p class="notice">Payments are handled through the account page. Payment verification is manual. Do not send money through an unverified link or personal number.</p>
-  <p><a href="/account.html" style="color:var(--accent)">Open your Browndy Predicts account</a></p>
+  <p class="notice">Payments are handled through your Browndy Predicts account. Payment verification is manual. Your account must be approved before accessing the main application.</p>
+  <p><button type="button" id="openAccountFromPremium">Open your account</button></p>
 </div>
 </section>
 </main>
@@ -180,6 +182,7 @@ footer{max-width:1050px;margin:auto;padding:0 16px 30px;color:var(--muted);font-
 <footer>© <span id="year"></span> Browndy Predicts. Predictions are estimates, not guarantees.</footer>
 
 <script src="/account.js"></script>
+
 <script>
 "use strict";
 
@@ -201,6 +204,14 @@ let recentMatches = [];
 let currentStatistical = null;
 let currentAIResults = [];
 let selectedMatch = null;
+
+/*
+  ACCESS CONTROL:
+  The main app starts only after account.js confirms
+  that the customer's subscription is active.
+*/
+let premiumAccessGranted = false;
+let appStarted = false;
 
 function getAuthToken(){
   return sessionStorage.getItem(TOKEN_KEY) || "";
@@ -359,7 +370,6 @@ function matchCard(match,index,isRecent=false){
   `;
 }
 
-/* Only use results that the football provider marks as completed. */
 function isCompletedMatch(match){
   const status=String(match?.status || "").toUpperCase();
 
@@ -367,7 +377,6 @@ function isCompletedMatch(match){
     matchScore(match)!==null;
 }
 
-/* Automatically match saved predictions to official results. */
 function syncOfficialResults(){
   const history=getHistory();
 
@@ -377,9 +386,7 @@ function syncOfficialResults(){
 
   recentMatches.forEach(match=>{
     if(!isCompletedMatch(match)) return;
-
     if(match.id==null) return;
-
     officialById.set(String(match.id),match);
   });
 
@@ -436,6 +443,8 @@ function syncOfficialResults(){
 }
 
 async function loadMatches(){
+  if(!premiumAccessGranted) return;
+
   $("feedStatus").textContent="Loading fixtures...";
   $("reload").disabled=true;
 
@@ -485,7 +494,6 @@ async function loadMatches(){
         ` Some fixture requests failed: ${data.upcomingError}`;
     }
 
-    /* Grade saved predictions after official results are loaded. */
     syncOfficialResults();
     renderHistory();
 
@@ -518,7 +526,7 @@ function clearSelectedMatch(){
 
 document.addEventListener("click",event=>{
   const card=event.target.closest("[data-match]");
-  if(!card) return;
+  if(!card || !premiumAccessGranted) return;
 
   const index=Number(card.dataset.match);
   const isRecent=card.dataset.recent==="true";
@@ -811,6 +819,7 @@ function consensusPrediction(results){
   };
 }
 
+/* Existing AI provider calls are preserved. */
 async function callAI(provider,home,away,competition){
   const response=await fetch(provider.url,{
     method:"POST",
@@ -841,6 +850,13 @@ async function callAI(provider,home,away,competition){
 }
 
 async function savePrediction(prediction,type="Statistical"){
+  if(!premiumAccessGranted){
+    $("analysisStatus").textContent=
+      "An active approved subscription is required.";
+
+    return;
+  }
+
   const history=getHistory();
 
   const localItem={
@@ -876,7 +892,7 @@ async function savePrediction(prediction,type="Statistical"){
 
   if(!getAuthToken()){
     $("analysisStatus").textContent=
-      "Prediction saved on this device. Log in to save it to your online account.";
+      "Please log in again to save this prediction online.";
 
     return;
   }
@@ -933,6 +949,13 @@ async function savePrediction(prediction,type="Statistical"){
 }
 
 $("analyse").addEventListener("click",async()=>{
+  if(!premiumAccessGranted){
+    $("analysisStatus").textContent=
+      "Please complete your subscription and wait for admin approval.";
+
+    return;
+  }
+
   const home=$("home").value.trim();
   const away=$("away").value.trim();
 
@@ -1071,7 +1094,6 @@ $("runAI").addEventListener("click",async()=>{
   }
 });
 
-/* Grade only the markets that were actually predicted. */
 function grade(item){
   if(!item.actual) return null;
 
@@ -1138,6 +1160,8 @@ function marketLine(label,prediction,won){
 }
 
 function renderHistory(){
+  if(!premiumAccessGranted) return;
+
   const history=getHistory();
   const checked=history.filter(item=>item.actual);
 
@@ -1221,6 +1245,8 @@ function renderHistory(){
 }
 
 $("historyList").addEventListener("click",event=>{
+  if(!premiumAccessGranted) return;
+
   const button=event.target.closest("[data-action]");
   if(!button) return;
 
@@ -1268,6 +1294,8 @@ $("historyList").addEventListener("click",event=>{
 });
 
 $("clearHistory").addEventListener("click",()=>{
+  if(!premiumAccessGranted) return;
+
   if(!confirm(
     "Clear all saved predictions and results from this device?"
   )){
@@ -1278,10 +1306,14 @@ $("clearHistory").addEventListener("click",()=>{
   renderHistory();
 });
 
-$("reload").addEventListener("click",loadMatches);
+$("reload").addEventListener("click",()=>{
+  if(premiumAccessGranted) loadMatches();
+});
 
 document.querySelectorAll("[data-tab]").forEach(button=>{
   button.addEventListener("click",()=>{
+    if(!premiumAccessGranted) return;
+
     const selected=button.dataset.tab;
 
     document.querySelectorAll("[data-tab]").forEach(tab=>{
@@ -1294,9 +1326,52 @@ document.querySelectorAll("[data-tab]").forEach(button=>{
   });
 });
 
-/* Show saved history immediately, then update it after loading results. */
-renderHistory();
-loadMatches();
+/*
+  This event is sent by account.js only after it confirms
+  that the customer has an active Premium subscription.
+*/
+function startPremiumApp(){
+  if(!premiumAccessGranted || appStarted) return;
+
+  appStarted=true;
+
+  $("feedStatus").textContent="Your subscription is active. Loading fixtures...";
+  $("analysisStatus").textContent="Your Premium account is active.";
+
+  renderHistory();
+  loadMatches();
+}
+
+window.addEventListener("browndy:access-changed",event=>{
+  const active=event.detail?.active===true;
+
+  premiumAccessGranted=active;
+
+  if(active){
+    startPremiumApp();
+  }else{
+    appStarted=false;
+    matches=[];
+    recentMatches=[];
+  }
+});
+
+/*
+  If account.js has already confirmed access before this
+  listener runs, check its access flag as a backup.
+*/
+if(document.documentElement.dataset.premiumActive==="true"){
+  premiumAccessGranted=true;
+  startPremiumApp();
+}
+
+$("openAccountFromPremium").addEventListener("click",()=>{
+  const accountButton=document.getElementById("bpAccountButton");
+
+  if(accountButton){
+    accountButton.click();
+  }
+});
 </script>
 
 <script>
@@ -1338,5 +1413,6 @@ if("serviceWorker" in navigator){
   });
 }
 </script>
+
 </body>
 </html>
