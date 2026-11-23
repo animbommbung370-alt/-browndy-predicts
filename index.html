@@ -78,6 +78,7 @@ input:focus{outline:2px solid var(--accent);border-color:var(--accent)}
 .market-lost{color:var(--red);font-weight:800}
 #shareAppBtn{margin-top:8px}
 .section-intro{color:var(--muted);font-size:13px;margin-top:-5px}
+.offline-label{color:var(--warn);font-weight:800}
 footer{max-width:1050px;margin:auto;padding:0 16px 30px;color:var(--muted);font-size:12px;text-align:center}
 @media(min-width:760px){.layout{grid-template-columns:1.05fr .95fr}.formgrid{grid-template-columns:1fr 1fr}.card{padding:21px}}
 </style>
@@ -192,6 +193,7 @@ $("year").textContent = new Date().getFullYear();
 const API = "/api/football";
 const PREDICTIONS_API = "/api/predictions";
 const STORAGE = "browndy_predictions_v2";
+const FIXTURES_CACHE = "browndy_fixtures_cache_v1";
 const TOKEN_KEY = "browndy_customer_token";
 
 const AI_PROVIDERS = [
@@ -205,11 +207,6 @@ let currentStatistical = null;
 let currentAIResults = [];
 let selectedMatch = null;
 
-/*
-  ACCESS CONTROL:
-  The main app starts only after account.js confirms
-  that the customer's subscription is active.
-*/
 let premiumAccessGranted = false;
 let appStarted = false;
 
@@ -303,6 +300,62 @@ function getHistory(){
 
 function saveHistory(history){
   localStorage.setItem(STORAGE,JSON.stringify(history));
+}
+
+/* OFFLINE FIXTURE STORAGE */
+
+function saveFixturesCache(){
+  try{
+    const cachedData={
+      savedAt:new Date().toISOString(),
+      matches,
+      recentMatches
+    };
+
+    localStorage.setItem(
+      FIXTURES_CACHE,
+      JSON.stringify(cachedData)
+    );
+
+    return true;
+  }catch(error){
+    console.warn("Unable to save offline fixtures:",error);
+    return false;
+  }
+}
+
+function loadFixturesCache(){
+  try{
+    const saved=JSON.parse(
+      localStorage.getItem(FIXTURES_CACHE) || "null"
+    );
+
+    if(
+      !saved ||
+      !Array.isArray(saved.matches) ||
+      !Array.isArray(saved.recentMatches)
+    ){
+      return null;
+    }
+
+    matches=saved.matches;
+    recentMatches=saved.recentMatches;
+
+    return saved;
+  }catch(error){
+    console.warn("Unable to read saved fixtures:",error);
+    return null;
+  }
+}
+
+function renderFixtureLists(){
+  $("matchesList").innerHTML=matches.length
+    ? matches.map((match,index)=>matchCard(match,index)).join("")
+    : "<p class='muted'>No saved upcoming fixtures. Connect to the internet and load matches to save them.</p>";
+
+  $("recentList").innerHTML=recentMatches.length
+    ? recentMatches.map((match,index)=>matchCard(match,index,true)).join("")
+    : "<p class='muted'>No saved recent results.</p>";
 }
 
 function dateText(value){
@@ -478,13 +531,9 @@ async function loadMatches(){
         ? data.recent
         : [];
 
-    $("matchesList").innerHTML=matches.length
-      ? matches.map((match,index)=>matchCard(match,index)).join("")
-      : "<p class='muted'>No upcoming fixtures available right now.</p>";
+    renderFixtureLists();
 
-    $("recentList").innerHTML=recentMatches.length
-      ? recentMatches.map((match,index)=>matchCard(match,index,true)).join("")
-      : "<p class='muted'>No recent results available.</p>";
+    saveFixturesCache();
 
     $("feedStatus").textContent=
       `${matches.length} upcoming fixtures loaded.`;
@@ -507,11 +556,28 @@ async function loadMatches(){
     }
 
   }catch(error){
-    $("feedStatus").textContent=
-      error.message || "Unable to load fixtures.";
+    console.warn("Online fixture loading failed:",error);
 
-    $("matchesList").innerHTML=
-      "<p class='error'>Fixtures could not be loaded. Please try again.</p>";
+    const cached=loadFixturesCache();
+
+    if(cached){
+      renderFixtureLists();
+
+      const savedDate=cached.savedAt
+        ? dateText(cached.savedAt)
+        : "previously";
+
+      $("feedStatus").innerHTML=
+        `<span class="offline-label">OFFLINE MODE</span> · Showing saved fixtures from ${safe(savedDate)}.`;
+
+    }else{
+      $("feedStatus").innerHTML=
+        `<span class="offline-label">OFFLINE MODE</span> · No saved fixtures yet. Connect to the internet and load matches once.`;
+
+      matches=[];
+      recentMatches=[];
+      renderFixtureLists();
+    }
 
     renderHistory();
 
@@ -519,6 +585,21 @@ async function loadMatches(){
     $("reload").disabled=false;
   }
 }
+
+/* Automatically update the display when internet changes. */
+window.addEventListener("offline",()=>{
+  if(!premiumAccessGranted) return;
+
+  $("feedStatus").innerHTML=
+    "<span class='offline-label'>OFFLINE MODE</span> · Your saved fixtures and device history remain available.";
+});
+
+window.addEventListener("online",()=>{
+  if(!premiumAccessGranted) return;
+
+  $("feedStatus").textContent="Internet connection restored. Updating fixtures...";
+  loadMatches();
+});
 
 function clearSelectedMatch(){
   selectedMatch=null;
@@ -819,7 +900,6 @@ function consensusPrediction(results){
   };
 }
 
-/* Existing AI provider calls are preserved. */
 async function callAI(provider,home,away,competition){
   const response=await fetch(provider.url,{
     method:"POST",
@@ -860,8 +940,8 @@ async function savePrediction(prediction,type="Statistical"){
   const history=getHistory();
 
   const localItem={
-    id:crypto.randomUUID
-      ? crypto.randomUUID()
+    id:window.crypto?.randomUUID
+      ? window.crypto.randomUUID()
       : `${Date.now()}-${Math.random().toString(16).slice(2)}`,
     date:new Date().toISOString(),
     home:prediction.home,
@@ -993,6 +1073,13 @@ $("analyse").addEventListener("click",async()=>{
 });
 
 $("runAI").addEventListener("click",async()=>{
+  if(!premiumAccessGranted){
+    $("analysisStatus").textContent=
+      "An active approved subscription is required.";
+
+    return;
+  }
+
   const home=$("home").value.trim();
   const away=$("away").value.trim();
 
@@ -1009,6 +1096,13 @@ $("runAI").addEventListener("click",async()=>{
   if(!getAuthToken()){
     $("analysisStatus").textContent=
       "Please log in before using AI analysis.";
+
+    return;
+  }
+
+  if(!navigator.onLine){
+    $("analysisStatus").textContent=
+      "AI analysis requires an internet connection.";
 
     return;
   }
@@ -1326,10 +1420,6 @@ document.querySelectorAll("[data-tab]").forEach(button=>{
   });
 });
 
-/*
-  This event is sent by account.js only after it confirms
-  that the customer has an active Premium subscription.
-*/
 function startPremiumApp(){
   if(!premiumAccessGranted || appStarted) return;
 
@@ -1356,10 +1446,6 @@ window.addEventListener("browndy:access-changed",event=>{
   }
 });
 
-/*
-  If account.js has already confirmed access before this
-  listener runs, check its access flag as a backup.
-*/
 if(document.documentElement.dataset.premiumActive==="true"){
   premiumAccessGranted=true;
   startPremiumApp();
