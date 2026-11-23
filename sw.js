@@ -1,4 +1,4 @@
-const CACHE_NAME = "browndy-predicts-v2";
+const CACHE_NAME = "browndy-predicts-v3";
 
 const APP_FILES = [
   "/",
@@ -10,7 +10,17 @@ self.addEventListener("install", event => {
   event.waitUntil(
     (async () => {
       const cache = await caches.open(CACHE_NAME);
-      await cache.addAll(APP_FILES);
+
+      await Promise.all(
+        APP_FILES.map(async file => {
+          try {
+            await cache.add(file);
+          } catch (error) {
+            console.log("Could not cache:", file);
+          }
+        })
+      );
+
       await self.skipWaiting();
     })()
   );
@@ -23,7 +33,10 @@ self.addEventListener("activate", event => {
 
       await Promise.all(
         keys
-          .filter(key => key.startsWith("browndy-predicts-") && key !== CACHE_NAME)
+          .filter(key =>
+            key.startsWith("browndy-predicts-") &&
+            key !== CACHE_NAME
+          )
           .map(key => caches.delete(key))
       );
 
@@ -46,17 +59,45 @@ self.addEventListener("fetch", event => {
     return;
   }
 
-  if (request.mode === "navigate") {
-    event.respondWith(
-      fetch(request).catch(async () => {
-        const cache = await caches.open(CACHE_NAME);
-        return (
-          await cache.match("/") ||
-          new Response("Browndy Predicts is offline. Please reconnect to the internet.", {
-            headers: { "Content-Type": "text/plain" }
-          })
-        );
-      })
-    );
-  }
+  event.respondWith(
+    (async () => {
+      const cache = await caches.open(CACHE_NAME);
+
+      if (request.mode === "navigate") {
+        try {
+          const response = await fetch(request);
+
+          if (response.ok) {
+            await cache.put("/", response.clone());
+          }
+
+          return response;
+        } catch (error) {
+          return (
+            await cache.match("/") ||
+            new Response(
+              "Browndy Predicts is offline. Please reconnect.",
+              { headers: { "Content-Type": "text/plain" } }
+            )
+          );
+        }
+      }
+
+      const cached = await cache.match(request);
+
+      if (cached) return cached;
+
+      try {
+        const response = await fetch(request);
+
+        if (response.ok) {
+          await cache.put(request, response.clone());
+        }
+
+        return response;
+      } catch (error) {
+        return new Response("You are offline.", { status: 503 });
+      }
+    })()
+  );
 });
