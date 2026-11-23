@@ -1,38 +1,26 @@
 (() => {
+  const TOKEN_KEY = "browndy_customer_token";
+  const API = "/api";
+
   function startAccount() {
-    const API = "/api";
-    const TOKEN_KEY = "browndy_customer_token";
+    if (document.getElementById("bp-account-overlay")) return;
 
-    const getToken = () => sessionStorage.getItem(TOKEN_KEY);
-
-    async function apiRequest(url, options = {}) {
-      const headers = {
-        "Content-Type": "application/json",
-        ...(options.headers || {})
-      };
-
-      if (getToken()) {
-        headers.Authorization = "Bearer " + getToken();
-      }
-
-      const response = await fetch(API + url, {
-        ...options,
-        headers,
-        cache: "no-store"
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Something went wrong.");
-      }
-
-      return data;
-    }
+    const getToken = () => sessionStorage.getItem(TOKEN_KEY) || "";
 
     const style = document.createElement("style");
 
     style.textContent = `
+      html.bp-account-locked,
+      html.bp-account-locked body {
+        overflow: hidden !important;
+      }
+
+      html.bp-account-locked header,
+      html.bp-account-locked main,
+      html.bp-account-locked footer {
+        display: none !important;
+      }
+
       #bp-account-button {
         position: fixed;
         right: 15px;
@@ -49,18 +37,21 @@
       }
 
       #bp-account-overlay {
-        display: none;
+        display: flex;
         position: fixed;
         inset: 0;
         z-index: 9999;
-        background: #000b;
+        background: #06150f;
         padding: 18px;
         overflow-y: auto;
+        align-items: center;
+        justify-content: center;
       }
 
       #bp-account-box {
+        width: 100%;
         max-width: 430px;
-        margin: 35px auto;
+        margin: auto;
         padding: 22px;
         border-radius: 18px;
         background: #10281f;
@@ -114,6 +105,16 @@
         padding-top: 15px;
         margin-top: 15px;
       }
+
+      #bp-premium-status {
+        color: #8df0ad;
+        font-weight: bold;
+      }
+
+      #bp-account-box button:disabled {
+        opacity: .5;
+        cursor: wait;
+      }
     `;
 
     document.head.appendChild(style);
@@ -131,17 +132,21 @@
         <h2>Browndy Predicts Account</h2>
 
         <div id="bp-account-message">
-          Create an account or log in.
+          Please create an account or log in.
         </div>
 
         <div id="bp-account-auth">
-          <label>Phone number</label>
-          <input id="bp-phone" type="tel"
-            placeholder="Your phone number">
+          <label>
+            Phone number
+            <input id="bp-phone" type="tel"
+              placeholder="Your phone number">
+          </label>
 
-          <label>Password</label>
-          <input id="bp-password" type="password"
-            placeholder="At least 8 characters">
+          <label>
+            Password
+            <input id="bp-password" type="password"
+              placeholder="At least 8 characters">
+          </label>
 
           <button class="bp-main-button" id="bp-register">
             Create account
@@ -166,13 +171,17 @@
               Then enter your payment details below.
             </p>
 
-            <label>Your full name</label>
-            <input id="bp-payment-name" type="text"
-              placeholder="Enter your full name">
+            <label>
+              Your full name
+              <input id="bp-payment-name" type="text"
+                placeholder="Enter your full name">
+            </label>
 
-            <label>MTN transaction ID</label>
-            <input id="bp-transaction-id" type="text"
-              placeholder="Enter your transaction ID">
+            <label>
+              MTN transaction ID
+              <input id="bp-transaction-id" type="text"
+                placeholder="Enter your transaction ID">
+            </label>
 
             <button class="bp-main-button" id="bp-submit-payment">
               Submit Payment for Approval
@@ -180,7 +189,7 @@
 
             <p>
               Your payment will be checked manually.
-              Premium will be activated after approval.
+              Premium will activate after approval.
             </p>
           </div>
 
@@ -188,66 +197,122 @@
             Log out
           </button>
         </div>
-
-        <button class="bp-close-button" id="bp-close">
-          Close
-        </button>
       </div>
     `;
 
     document.body.appendChild(overlay);
 
-    const message = text => {
-      document.getElementById("bp-account-message").textContent = text;
-    };
+    const $ = id => document.getElementById(id);
+
+    function message(text) {
+      $("bp-account-message").textContent = text;
+    }
+
+    function lockAccount() {
+      document.documentElement.classList.add("bp-account-locked");
+      overlay.style.display = "flex";
+      button.style.display = "none";
+    }
+
+    function unlockAccount() {
+      document.documentElement.classList.remove("bp-account-locked");
+      overlay.style.display = "none";
+      button.style.display = "block";
+
+      window.dispatchEvent(
+        new CustomEvent("browndy:access-changed", {
+          detail: { premiumActive: true }
+        })
+      );
+    }
+
+    async function apiRequest(url, options = {}) {
+      const headers = {
+        "Content-Type": "application/json",
+        ...(options.headers || {})
+      };
+
+      if (getToken()) {
+        headers.Authorization = "Bearer " + getToken();
+      }
+
+      const response = await fetch(API + url, {
+        ...options,
+        headers,
+        cache: "no-store"
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(data.error || "Something went wrong.");
+      }
+
+      return data;
+    }
+
+    function showLogin(messageText = "Create an account or log in.") {
+      $("bp-account-auth").style.display = "block";
+      $("bp-account-logged").style.display = "none";
+      message(messageText);
+      lockAccount();
+    }
 
     async function refreshAccount() {
       const data = await apiRequest("/auth");
 
-      document.getElementById("bp-account-auth").style.display = "none";
-      document.getElementById("bp-account-logged").style.display = "block";
+      if (!data.customer) {
+        throw new Error("Account information could not be loaded.");
+      }
 
-      document.getElementById("bp-account-details").textContent =
+      $("bp-account-auth").style.display = "none";
+      $("bp-account-logged").style.display = "block";
+
+      $("bp-account-details").textContent =
         "Logged in as: " + data.customer.phone_number;
 
-      const paymentSection =
-        document.getElementById("bp-payment-section");
-
-      const premiumStatus =
-        document.getElementById("bp-premium-status");
+      const paymentSection = $("bp-payment-section");
+      const premiumStatus = $("bp-premium-status");
 
       if (data.premium_active === true) {
         premiumStatus.textContent =
           "Premium ACTIVE until " + data.premium_until;
 
         paymentSection.style.display = "none";
+        message("Your Premium subscription is active.");
+
+        unlockAccount();
       } else {
-        premiumStatus.textContent = "Premium is not active.";
+        premiumStatus.textContent =
+          "Premium is not active. Your account is locked.";
+
         paymentSection.style.display = "block";
+
+        message(
+          "Your account is registered, but you need an approved Premium subscription to enter the app."
+        );
+
+        lockAccount();
       }
 
-      message("Your account is ready.");
       return data;
     }
 
-    function openPredictions() {
-      overlay.style.display = "none";
-      window.location.reload();
-    }
-
     async function authenticate(action) {
-      try {
-        const phone =
-          document.getElementById("bp-phone").value.trim();
+      const authButton = action === "register"
+        ? $("bp-register")
+        : $("bp-login");
 
-        const password =
-          document.getElementById("bp-password").value;
+      try {
+        const phone = $("bp-phone").value.trim();
+        const password = $("bp-password").value;
 
         if (!phone || !password) {
           message("Enter your phone number and password.");
           return;
         }
 
+        authButton.disabled = true;
         message("Please wait...");
 
         const data = await apiRequest("/auth", {
@@ -259,58 +324,27 @@
           })
         });
 
+        if (!data.token) {
+          throw new Error("Login token was not received.");
+        }
+
         sessionStorage.setItem(TOKEN_KEY, data.token);
 
-        const account = await refreshAccount();
-
-        if (account.premium_active === true) {
-          message("Premium active! Opening predictions...");
-          setTimeout(openPredictions, 1000);
-        }
+        await refreshAccount();
 
       } catch (error) {
         message(error.message);
+      } finally {
+        authButton.disabled = false;
       }
     }
 
-    button.addEventListener("click", async () => {
-      overlay.style.display = "block";
-
-      if (getToken()) {
-        try {
-          await refreshAccount();
-        } catch (error) {
-          sessionStorage.removeItem(TOKEN_KEY);
-
-          document.getElementById("bp-account-auth").style.display = "block";
-          document.getElementById("bp-account-logged").style.display = "none";
-
-          message("Please log in again.");
-        }
-      } else {
-        document.getElementById("bp-account-auth").style.display = "block";
-        document.getElementById("bp-account-logged").style.display = "none";
-
-        message("Create an account or log in.");
-      }
-    });
-
-    document.getElementById("bp-register").onclick =
-      () => authenticate("register");
-
-    document.getElementById("bp-login").onclick =
-      () => authenticate("login");
-
-    document.getElementById("bp-submit-payment").onclick = async () => {
-      const payButton =
-        document.getElementById("bp-submit-payment");
+    async function submitPayment() {
+      const payButton = $("bp-submit-payment");
 
       try {
-        const customerName =
-          document.getElementById("bp-payment-name").value.trim();
-
-        const transactionId =
-          document.getElementById("bp-transaction-id").value.trim();
+        const customerName = $("bp-payment-name").value.trim();
+        const transactionId = $("bp-transaction-id").value.trim();
 
         if (!customerName || !transactionId) {
           message("Enter your full name and MTN transaction ID.");
@@ -328,42 +362,100 @@
           })
         });
 
-        message(
-          "Payment submitted successfully. Your payment is PENDING manual approval. Premium will activate after approval."
-        );
+        $("bp-payment-name").value = "";
+        $("bp-transaction-id").value = "";
 
-        document.getElementById("bp-payment-name").value = "";
-        document.getElementById("bp-transaction-id").value = "";
+        message(
+          "Payment submitted successfully. Your payment is PENDING manual approval. Your account will unlock after approval."
+        );
 
       } catch (error) {
         message(error.message);
       } finally {
         payButton.disabled = false;
       }
-    };
+    }
 
-    document.getElementById("bp-logout").onclick = async () => {
+    async function logout() {
       try {
         await apiRequest("/auth", {
           method: "POST",
           body: JSON.stringify({ action: "logout" })
         });
       } catch (error) {
-        // Clear the local session even if the request fails.
+        // The local session is cleared even if the request fails.
       }
 
       sessionStorage.removeItem(TOKEN_KEY);
 
-      document.getElementById("bp-account-auth").style.display = "block";
-      document.getElementById("bp-account-logged").style.display = "none";
+      showLogin("You have logged out. Please log in again.");
+    }
 
-      message("You have logged out.");
-    };
+    button.addEventListener("click", async () => {
+      lockAccount();
 
-    document.getElementById("bp-close").onclick = () => {
-      overlay.style.display = "none";
-    };
+      if (!getToken()) {
+        showLogin();
+        return;
+      }
+
+      try {
+        await refreshAccount();
+      } catch (error) {
+        sessionStorage.removeItem(TOKEN_KEY);
+        showLogin("Your session has expired. Please log in again.");
+      }
+    });
+
+    $("bp-register").addEventListener("click", () => {
+      authenticate("register");
+    });
+
+    $("bp-login").addEventListener("click", () => {
+      authenticate("login");
+    });
+
+    $("bp-submit-payment").addEventListener("click", submitPayment);
+
+    $("bp-logout").addEventListener("click", logout);
+
+    // Keep the account screen locked while checking access.
+    lockAccount();
+
+    // Check the customer's existing subscription on page opening.
+    async function checkExistingSession() {
+      if (!getToken()) {
+        showLogin();
+        return;
+      }
+
+      try {
+        message("Checking your account and subscription...");
+        await refreshAccount();
+      } catch (error) {
+        sessionStorage.removeItem(TOKEN_KEY);
+        showLogin("Please log in again.");
+      }
+    }
+
+    checkExistingSession();
+
+    // Recheck the subscription when the customer returns to the app.
+    document.addEventListener("visibilitychange", async () => {
+      if (document.visibilityState !== "visible") return;
+      if (!getToken()) return;
+
+      try {
+        await refreshAccount();
+      } catch (error) {
+        sessionStorage.removeItem(TOKEN_KEY);
+        showLogin("Your session has expired. Please log in again.");
+      }
+    });
   }
+
+  // Hide the main app immediately, before the account check runs.
+  document.documentElement.classList.add("bp-account-locked");
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", startAccount);
