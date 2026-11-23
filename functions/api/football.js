@@ -4,7 +4,7 @@ const json = (data, status = 200) =>
   new Response(JSON.stringify(data), {
     status,
     headers: {
-      "Content-Type": "application/json",
+      "Content-Type": "application/json; charset=utf-8",
       "Cache-Control": "no-store"
     }
   });
@@ -32,19 +32,13 @@ function formatMatch(match) {
 }
 
 export async function onRequest({ request, env }) {
-  const access = await requirePremium(request, env);
-
-  if (!access.allowed) {
-    return json({ error: access.error }, access.status);
-  }
-
   if (request.method === "OPTIONS") {
     return new Response(null, {
       status: 204,
       headers: {
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Headers": "Content-Type, Authorization",
-        "Access-Control-Allow-Methods": "GET, POST, OPTIONS"
+        "Access-Control-Allow-Methods": "GET, OPTIONS"
       }
     });
   }
@@ -53,32 +47,37 @@ export async function onRequest({ request, env }) {
     return json({ error: "Method not allowed." }, 405);
   }
 
+  const access = await requirePremium(request, env);
+
+  if (!access.allowed) {
+    return json({
+      success: false,
+      error: access.error,
+      subscription_required: access.status === 403,
+      login_required: access.status === 401
+    }, access.status);
+  }
+
   const token = env.FOOTBALL_DATA_TOKEN;
 
   if (!token) {
     return json({
+      success: false,
       error: "Football data token is missing."
     }, 500);
   }
 
   const now = new Date();
-  const from = now.toISOString().slice(0, 10);
-  const to = new Date(now.getTime() + 30 * 86400000)
-    .toISOString().slice(0, 10);
-
-  const pastFrom = new Date(now.getTime() - 60 * 86400000)
-    .toISOString().slice(0, 10);
-
-  const competitions = [
-    "PL", "PD", "SA", "BL1", "FL1", "CL", "PPL", "DED", "ELC", "BSA"
-  ];
 
   const headers = {
     "X-Auth-Token": token
   };
 
   async function fetchMatches(dateFrom, dateTo, status) {
-    const url = new URL("https://api.football-data.org/v4/matches");
+    const url = new URL(
+      "https://api.football-data.org/v4/matches"
+    );
+
     url.searchParams.set("dateFrom", dateFrom);
     url.searchParams.set("dateTo", dateTo);
 
@@ -92,18 +91,28 @@ export async function onRequest({ request, env }) {
     });
 
     if (!response.ok) {
-      throw new Error(`Football data error: ${response.status}`);
+      throw new Error(
+        `Football data error: ${response.status}`
+      );
     }
 
     const data = await response.json();
+
     return (data.matches || []).map(formatMatch);
   }
 
   try {
     const upcomingRanges = [];
+
     for (let i = 0; i < 30; i += 10) {
-      const start = new Date(now.getTime() + i * 86400000);
-      const end = new Date(now.getTime() + (i + 9) * 86400000);
+      const start = new Date(
+        now.getTime() + i * 86400000
+      );
+
+      const end = new Date(
+        now.getTime() + (i + 9) * 86400000
+      );
+
       upcomingRanges.push(
         fetchMatches(
           start.toISOString().slice(0, 10),
@@ -113,9 +122,16 @@ export async function onRequest({ request, env }) {
     }
 
     const recentRanges = [];
+
     for (let i = 0; i < 60; i += 10) {
-      const start = new Date(now.getTime() - (i + 9) * 86400000);
-      const end = new Date(now.getTime() - i * 86400000);
+      const start = new Date(
+        now.getTime() - (i + 9) * 86400000
+      );
+
+      const end = new Date(
+        now.getTime() - i * 86400000
+      );
+
       recentRanges.push(
         fetchMatches(
           start.toISOString().slice(0, 10),
@@ -132,20 +148,24 @@ export async function onRequest({ request, env }) {
 
     const matches = allResults
       .slice(0, 3)
-      .filter(r => r.status === "fulfilled")
-      .flatMap(r => r.value);
+      .filter(result => result.status === "fulfilled")
+      .flatMap(result => result.value);
 
     const recentMatches = allResults
       .slice(3)
-      .filter(r => r.status === "fulfilled")
-      .flatMap(r => r.value);
+      .filter(result => result.status === "fulfilled")
+      .flatMap(result => result.value);
 
     const uniqueUpcoming = Array.from(
-      new Map(matches.map(m => [m.id, m])).values()
+      new Map(
+        matches.map(match => [match.id, match])
+      ).values()
     );
 
     const uniqueRecent = Array.from(
-      new Map(recentMatches.map(m => [m.id, m])).values()
+      new Map(
+        recentMatches.map(match => [match.id, match])
+      ).values()
     );
 
     return json({
