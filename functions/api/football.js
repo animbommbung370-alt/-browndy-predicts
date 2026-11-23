@@ -1,298 +1,166 @@
 import { requirePremium } from "./premium.js";
 
-const API_BASE = "https://api.football-data.org/v4";
-
-async function apiRequest(url, token) {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 12000);
-
-  try {
-    const response = await fetch(url, {
-      headers: {
-        "X-Auth-Token": token,
-        Accept: "application/json"
-      },
-      signal: controller.signal
-    });
-
-    let parsed;
-
-    try {
-      parsed = await response.json();
-    } catch {
-      throw new Error("Invalid response from football API");
+const json = (data, status = 200) =>
+  new Response(JSON.stringify(data), {
+    status,
+    headers: {
+      "Content-Type": "application/json",
+      "Cache-Control": "no-store"
     }
-
-    if (!response.ok) {
-      throw new Error(parsed.message || "Football API request failed");
-    }
-
-    return parsed;
-  } catch (error) {
-    if (error.name === "AbortError") {
-      throw new Error("Football API request timed out");
-    }
-
-    throw error;
-  } finally {
-    clearTimeout(timeout);
-  }
-}
+  });
 
 function formatMatch(match) {
-  const homeScore = match.score?.fullTime?.home ?? null;
-  const awayScore = match.score?.fullTime?.away ?? null;
-
   return {
     id: match.id,
     utcDate: match.utcDate,
     date: match.utcDate,
     status: match.status,
-    matchday: match.matchday ?? null,
-    competition: match.competition?.name ?? "Unknown competition",
-    homeTeam: match.homeTeam?.name ?? "Home team",
-    awayTeam: match.awayTeam?.name ?? "Away team",
-    homeTeamName: match.homeTeam?.name ?? "Home team",
-    awayTeamName: match.awayTeam?.name ?? "Away team",
-    homeCrest: match.homeTeam?.crest ?? "",
-    awayCrest: match.awayTeam?.crest ?? "",
-    score: {
-      home: homeScore,
-      away: awayScore
+    matchday: match.matchday,
+    competition: match.competition?.name || "",
+    homeTeam: {
+      id: match.homeTeam?.id,
+      name: match.homeTeam?.name || "",
+      crest: match.homeTeam?.crest || ""
     },
-    homeScore,
-    awayScore
+    awayTeam: {
+      id: match.awayTeam?.id,
+      name: match.awayTeam?.name || "",
+      crest: match.awayTeam?.crest || ""
+    },
+    score: match.score
   };
 }
 
-function dateString(date) {
-  return date.toISOString().slice(0, 10);
-}
+export async function onRequest({ request, env }) {
+  const access = await requirePremium(request, env);
 
-function shiftDate(date, days) {
-  const result = new Date(date);
-  result.setUTCDate(result.getUTCDate() + days);
-  return result;
-}
-
-function jsonResponse(data, status = 200) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: {
-      "Content-Type": "application/json; charset=utf-8",
-      "Cache-Control": "no-store",
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type, Authorization"
-    }
-  });
-}
-
-export async function onRequest(context) {
-  const { request, env } = context;
+  if (!access.allowed) {
+    return json({ error: access.error }, access.status);
+  }
 
   if (request.method === "OPTIONS") {
     return new Response(null, {
       status: 204,
       headers: {
         "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type, Authorization"
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+        "Access-Control-Allow-Methods": "GET, POST, OPTIONS"
       }
     });
   }
 
-  if (!["GET", "POST"].includes(request.method)) {
-    return jsonResponse({
-      success: false,
-      error: "Method not allowed."
-    }, 405);
-  }
-
-  if (request.method === "POST") {
-    const access = await requirePremium(request, env);
-
-    if (!access.allowed) {
-      return jsonResponse({
-        success: false,
-        error: access.error
-      }, access.status);
-    }
+  if (request.method !== "GET") {
+    return json({ error: "Method not allowed." }, 405);
   }
 
   const token = env.FOOTBALL_DATA_TOKEN;
 
   if (!token) {
-    return jsonResponse({
-      success: false,
-      error: "Football API token is missing. Check FOOTBALL_DATA_TOKEN in Cloudflare."
+    return json({
+      error: "Football data token is missing."
     }, 500);
   }
 
+  const now = new Date();
+  const from = now.toISOString().slice(0, 10);
+  const to = new Date(now.getTime() + 30 * 86400000)
+    .toISOString().slice(0, 10);
+
+  const pastFrom = new Date(now.getTime() - 60 * 86400000)
+    .toISOString().slice(0, 10);
+
+  const competitions = [
+    "PL", "PD", "SA", "BL1", "FL1", "CL", "PPL", "DED", "ELC", "BSA"
+  ];
+
+  const headers = {
+    "X-Auth-Token": token
+  };
+
+  async function fetchMatches(dateFrom, dateTo, status) {
+    const url = new URL("https://api.football-data.org/v4/matches");
+    url.searchParams.set("dateFrom", dateFrom);
+    url.searchParams.set("dateTo", dateTo);
+
+    if (status) {
+      url.searchParams.set("status", status);
+    }
+
+    const response = await fetch(url, {
+      headers,
+      cache: "no-store"
+    });
+
+    if (!response.ok) {
+      throw new Error(`Football data error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return (data.matches || []).map(formatMatch);
+  }
+
   try {
-    const today = new Date();
-
-    // Upcoming matches: next 30 days.
     const upcomingRanges = [];
-
-    for (let i = 0; i < 3; i++) {
-      const startDay = i * 10;
-      const endDay = startDay + 9;
-
-      upcomingRanges.push({
-        from: dateString(shiftDate(today, startDay)),
-        to: dateString(shiftDate(today, endDay))
-      });
+    for (let i = 0; i < 30; i += 10) {
+      const start = new Date(now.getTime() + i * 86400000);
+      const end = new Date(now.getTime() + (i + 9) * 86400000);
+      upcomingRanges.push(
+        fetchMatches(
+          start.toISOString().slice(0, 10),
+          end.toISOString().slice(0, 10)
+        )
+      );
     }
 
-    const upcomingRequests = upcomingRanges.map(range => {
-      const url =
-        `${API_BASE}/matches?dateFrom=${range.from}&dateTo=${range.to}`;
-
-      return apiRequest(url, token);
-    });
-
-    // Completed matches: look back 60 days in 10-day periods.
-    // This gives saved predictions more time to find their results.
     const recentRanges = [];
-
-    for (let i = 0; i < 6; i++) {
-      const rangeEnd = shiftDate(today, -(i * 10));
-      const rangeStart = shiftDate(rangeEnd, -9);
-
-      recentRanges.push({
-        from: dateString(rangeStart),
-        to: dateString(rangeEnd)
-      });
+    for (let i = 0; i < 60; i += 10) {
+      const start = new Date(now.getTime() - (i + 9) * 86400000);
+      const end = new Date(now.getTime() - i * 86400000);
+      recentRanges.push(
+        fetchMatches(
+          start.toISOString().slice(0, 10),
+          end.toISOString().slice(0, 10),
+          "FINISHED"
+        )
+      );
     }
 
-    const recentRequests = recentRanges.map(range => {
-      const url =
-        `${API_BASE}/matches?dateFrom=${range.from}&dateTo=${range.to}&status=FINISHED`;
-
-      return apiRequest(url, token);
-    });
-
-    // Fetch all ranges.
-    const results = await Promise.allSettled([
-      ...upcomingRequests,
-      ...recentRequests
+    const allResults = await Promise.allSettled([
+      ...upcomingRanges,
+      ...recentRanges
     ]);
 
-    // ------------------------------
-    // UPCOMING MATCHES
-    // ------------------------------
+    const matches = allResults
+      .slice(0, 3)
+      .filter(r => r.status === "fulfilled")
+      .flatMap(r => r.value);
 
-    const upcomingResults = results.slice(0, 3);
+    const recentMatches = allResults
+      .slice(3)
+      .filter(r => r.status === "fulfilled")
+      .flatMap(r => r.value);
 
-    const successfulUpcomingResults = upcomingResults.filter(
-      result => result.status === "fulfilled"
+    const uniqueUpcoming = Array.from(
+      new Map(matches.map(m => [m.id, m])).values()
     );
 
-    const upcomingAvailable = successfulUpcomingResults.length > 0;
-
-    const upcomingErrors = upcomingResults
-      .filter(result => result.status === "rejected")
-      .map(result => result.reason?.message || "Unknown fixture error");
-
-    let upcomingMatches = [];
-
-    for (const result of successfulUpcomingResults) {
-      upcomingMatches = upcomingMatches.concat(
-        result.value.matches || []
-      );
-    }
-
-    const uniqueUpcomingMatches = Array.from(
-      new Map(upcomingMatches.map(match => [match.id, match])).values()
+    const uniqueRecent = Array.from(
+      new Map(recentMatches.map(m => [m.id, m])).values()
     );
 
-    upcomingMatches = uniqueUpcomingMatches
-      .filter(match => ["SCHEDULED", "TIMED"].includes(match.status))
-      .map(formatMatch)
-      .sort((a, b) => new Date(a.utcDate) - new Date(b.utcDate));
-
-    // ------------------------------
-    // RECENT COMPLETED RESULTS
-    // ------------------------------
-
-    const recentResults = results.slice(3);
-
-    const successfulRecentResults = recentResults.filter(
-      result => result.status === "fulfilled"
-    );
-
-    const recentResultsAvailable = successfulRecentResults.length > 0;
-
-    let recentMatches = [];
-
-    for (const result of successfulRecentResults) {
-      recentMatches = recentMatches.concat(
-        result.value.matches || []
-      );
-    }
-
-    // Remove duplicate matches.
-    const uniqueRecentMatches = Array.from(
-      new Map(recentMatches.map(match => [match.id, match])).values()
-    );
-
-    // Keep only matches with official completed scores.
-    recentMatches = uniqueRecentMatches
-      .filter(match =>
-        ["FINISHED", "AWARDED"].includes(match.status) &&
-        match.score?.fullTime?.home !== null &&
-        match.score?.fullTime?.away !== null
-      )
-      .map(formatMatch)
-      .sort((a, b) => new Date(b.utcDate) - new Date(a.utcDate));
-
-    const failedRecentRequests =
-      recentRequests.length - successfulRecentResults.length;
-
-    // ------------------------------
-    // RESPONSE
-    // ------------------------------
-
-    return jsonResponse({
-      success: upcomingAvailable || recentResultsAvailable,
-      provider: "Football-Data.org",
-
-      matches: upcomingMatches,
-      recentMatches,
-
-      upcomingAvailable,
-      upcomingError: upcomingErrors.length
-        ? upcomingErrors.join("; ")
-        : null,
-
-      upcomingRequestsSuccessful:
-        successfulUpcomingResults.length,
-
-      recentResultsAvailable,
-
-      statisticsAvailable: false,
-
-      recentMatchesCount: recentMatches.length,
-
-      upcomingMessage: upcomingAvailable
-        ? `${upcomingMatches.length} upcoming matches loaded for the next 30 days.`
-        : "Upcoming matches could not be loaded. Please try again later.",
-
-      recentResultsMessage: recentResultsAvailable
-        ? `${recentMatches.length} completed results loaded from the last 60 days.` +
-          (failedRecentRequests > 0
-            ? ` ${failedRecentRequests} recent-results requests failed.`
-            : "")
-        : "Recent results could not be loaded. Please check your API plan and try again.",
-
+    return json({
+      success: true,
+      matches: uniqueUpcoming,
+      recentMatches: uniqueRecent,
       updatedAt: new Date().toISOString()
     });
 
   } catch (error) {
-    return jsonResponse({
+    console.error("Football API error:", error);
+
+    return json({
       success: false,
-      error: error.message || "Football API request failed."
+      error: "Unable to load matches."
     }, 500);
   }
 }
