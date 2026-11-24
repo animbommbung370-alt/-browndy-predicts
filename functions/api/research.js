@@ -1,4 +1,10 @@
-const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+const ALLOWED_SECTIONS = {
+  fixture: (id) => `/fixtures?id=${id}`,
+  statistics: (id) => `/fixtures/statistics?fixture=${id}`,
+  events: (id) => `/fixtures/events?fixture=${id}`,
+  lineups: (id) => `/fixtures/lineups?fixture=${id}`,
+  injuries: (id) => `/injuries?fixture=${id}`
+};
 
 export async function onRequest(context) {
   const { request, env } = context;
@@ -15,7 +21,10 @@ export async function onRequest(context) {
 
   if (request.method !== "GET") {
     return new Response(
-      JSON.stringify({ success: false, error: "GET requests only." }),
+      JSON.stringify({
+        success: false,
+        error: "GET requests only."
+      }),
       { status: 405, headers }
     );
   }
@@ -33,20 +42,32 @@ export async function onRequest(context) {
 
     const url = new URL(request.url);
     const fixture = url.searchParams.get("fixture");
+    const section = url.searchParams.get("section");
 
     if (!fixture || !/^\d+$/.test(fixture)) {
       return new Response(
         JSON.stringify({
           success: false,
-          error: "A valid API-Football fixture ID is required."
+          error: "A valid fixture ID is required."
+        }),
+        { status: 400, headers }
+      );
+    }
+
+    if (!section || !ALLOWED_SECTIONS[section]) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "Choose one valid section: fixture, statistics, events, lineups or injuries."
         }),
         { status: 400, headers }
       );
     }
 
     const cache = caches.default;
+
     const cacheKey = new Request(
-      `${url.origin}/api/research?fixture=${fixture}`
+      `${url.origin}/api/research?fixture=${fixture}&section=${section}`
     );
 
     const cached = await cache.match(cacheKey);
@@ -58,69 +79,41 @@ export async function onRequest(context) {
       });
     }
 
-    const endpoints = [
-      ["fixture", `/fixtures?id=${fixture}`],
-      ["statistics", `/fixtures/statistics?fixture=${fixture}`],
-      ["events", `/fixtures/events?fixture=${fixture}`],
-      ["lineups", `/fixtures/lineups?fixture=${fixture}`],
-      ["injuries", `/injuries?fixture=${fixture}`]
-    ];
+    const apiUrl =
+      `https://v3.football.api-sports.io${ALLOWED_SECTIONS[section](fixture)}`;
 
-    const research = {};
-    const unavailable = [];
-
-    for (let i = 0; i < endpoints.length; i++) {
-      const [name, path] = endpoints[i];
-
-      try {
-        const response = await fetch(
-          `https://v3.football.api-sports.io${path}`,
-          {
-            headers: {
-              "x-apisports-key": env.API_FOOTBALL_KEY
-            }
-          }
-        );
-
-        const data = await response.json();
-
-        if (!response.ok || (data.errors &&
-            Object.keys(data.errors).length > 0)) {
-          throw new Error(
-            JSON.stringify(data.errors || {
-              status: response.status
-            })
-          );
-        }
-
-        research[name] = data.response || [];
-
-      } catch (error) {
-        research[name] = [];
-
-        unavailable.push({
-          section: name,
-          reason: error.message || "Data unavailable"
-        });
+    const response = await fetch(apiUrl, {
+      headers: {
+        "x-apisports-key": env.API_FOOTBALL_KEY
       }
+    });
 
-      if (i < endpoints.length - 1) {
-        await wait(2000);
-      }
+    const data = await response.json();
+
+    if (!response.ok || (
+      data.errors && Object.keys(data.errors).length > 0
+    )) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          fixture,
+          section,
+          error: data.errors || `API request failed: ${response.status}`
+        }),
+        { status: response.status || 502, headers }
+      );
     }
 
     const result = {
       success: true,
       fixture,
-      research,
-      unavailable,
+      section,
+      research: {
+        [section]: data.response || []
+      },
+      unavailable: [],
       updatedAt: new Date().toISOString()
     };
-
-    const response = new Response(
-      JSON.stringify(result),
-      { headers }
-    );
 
     await cache.put(
       cacheKey,
@@ -132,7 +125,7 @@ export async function onRequest(context) {
       })
     );
 
-    return response;
+    return new Response(JSON.stringify(result), { headers });
 
   } catch (error) {
     return new Response(
