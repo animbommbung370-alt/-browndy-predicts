@@ -1,5 +1,8 @@
+const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
 export async function onRequest(context) {
   const { request, env } = context;
+
   const headers = {
     "Content-Type": "application/json",
     "Cache-Control": "no-store",
@@ -20,7 +23,10 @@ export async function onRequest(context) {
   try {
     if (!env.API_FOOTBALL_KEY) {
       return new Response(
-        JSON.stringify({ success: false, error: "API-Football key is missing." }),
+        JSON.stringify({
+          success: false,
+          error: "API-Football key is missing."
+        }),
         { status: 500, headers }
       );
     }
@@ -38,6 +44,20 @@ export async function onRequest(context) {
       );
     }
 
+    const cache = caches.default;
+    const cacheKey = new Request(
+      `${url.origin}/api/research?fixture=${fixture}`
+    );
+
+    const cached = await cache.match(cacheKey);
+
+    if (cached) {
+      return new Response(cached.body, {
+        status: cached.status,
+        headers
+      });
+    }
+
     const endpoints = [
       ["fixture", `/fixtures?id=${fixture}`],
       ["statistics", `/fixtures/statistics?fixture=${fixture}`],
@@ -46,8 +66,13 @@ export async function onRequest(context) {
       ["injuries", `/injuries?fixture=${fixture}`]
     ];
 
-    const results = await Promise.allSettled(
-      endpoints.map(async ([name, path]) => {
+    const research = {};
+    const unavailable = [];
+
+    for (let i = 0; i < endpoints.length; i++) {
+      const [name, path] = endpoints[i];
+
+      try {
         const response = await fetch(
           `https://v3.football.api-sports.io${path}`,
           {
@@ -57,47 +82,57 @@ export async function onRequest(context) {
           }
         );
 
-        if (!response.ok) {
-          throw new Error(`${name} request failed: ${response.status}`);
-        }
-
         const data = await response.json();
 
-        if (data.errors && Object.keys(data.errors).length) {
-          throw new Error(JSON.stringify(data.errors));
+        if (!response.ok || (data.errors &&
+            Object.keys(data.errors).length > 0)) {
+          throw new Error(
+            JSON.stringify(data.errors || {
+              status: response.status
+            })
+          );
         }
 
-        return { name, data: data.response || [] };
+        research[name] = data.response || [];
+
+      } catch (error) {
+        research[name] = [];
+
+        unavailable.push({
+          section: name,
+          reason: error.message || "Data unavailable"
+        });
+      }
+
+      if (i < endpoints.length - 1) {
+        await wait(2000);
+      }
+    }
+
+    const result = {
+      success: true,
+      fixture,
+      research,
+      unavailable,
+      updatedAt: new Date().toISOString()
+    };
+
+    const response = new Response(
+      JSON.stringify(result),
+      { headers }
+    );
+
+    await cache.put(
+      cacheKey,
+      new Response(JSON.stringify(result), {
+        headers: {
+          "Content-Type": "application/json",
+          "Cache-Control": "public, max-age=900"
+        }
       })
     );
 
-    const research = {};
-    const unavailable = [];
-
-    results.forEach((result, index) => {
-      const name = endpoints[index][0];
-
-      if (result.status === "fulfilled") {
-        research[name] = result.value.data;
-      } else {
-        research[name] = [];
-        unavailable.push({
-          section: name,
-          reason: result.reason?.message || "Data unavailable"
-        });
-      }
-    });
-
-    return new Response(
-      JSON.stringify({
-        success: true,
-        fixture,
-        research,
-        unavailable,
-        updatedAt: new Date().toISOString()
-      }),
-      { headers }
-    );
+    return response;
 
   } catch (error) {
     return new Response(
