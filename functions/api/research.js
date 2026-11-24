@@ -1,3 +1,5 @@
+import { requirePremium } from "./premium.js";
+
 const ALLOWED_SECTIONS = {
   fixture: (id) => `/fixtures?id=${id}`,
   statistics: (id) => `/fixtures/statistics?fixture=${id}`,
@@ -12,11 +14,13 @@ export async function onRequest(context) {
   const headers = {
     "Content-Type": "application/json",
     "Cache-Control": "no-store",
-    "Access-Control-Allow-Origin": "*"
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    "Access-Control-Allow-Methods": "GET, OPTIONS"
   };
 
   if (request.method === "OPTIONS") {
-    return new Response(null, { headers });
+    return new Response(null, { status: 204, headers });
   }
 
   if (request.method !== "GET") {
@@ -30,6 +34,21 @@ export async function onRequest(context) {
   }
 
   try {
+    // Protect the research endpoint.
+    const access = await requirePremium(request, env);
+
+    if (!access.allowed) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: access.error,
+          login_required: access.status === 401,
+          subscription_required: access.status === 403
+        }),
+        { status: access.status, headers }
+      );
+    }
+
     if (!env.API_FOOTBALL_KEY) {
       return new Response(
         JSON.stringify({
@@ -70,6 +89,7 @@ export async function onRequest(context) {
       `${url.origin}/api/research?fixture=${fixture}&section=${section}`
     );
 
+    // Check Premium access BEFORE returning cached research.
     const cached = await cache.match(cacheKey);
 
     if (cached) {
