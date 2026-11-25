@@ -79,6 +79,11 @@ input:focus{outline:2px solid var(--accent);border-color:var(--accent)}
 #shareAppBtn{margin-top:8px}
 .section-intro{color:var(--muted);font-size:13px;margin-top:-5px}
 .offline-label{color:var(--warn);font-weight:800}
+.research-section{border:1px solid var(--line);background:#091e15;border-radius:13px;padding:13px;margin:10px 0;overflow-wrap:anywhere}
+.research-section h3{font-size:15px;margin:0 0 8px;color:var(--accent)}
+.research-section p{font-size:13px;margin:6px 0}
+.research-section pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:11px;color:#c1d6c9;background:#06150f;padding:10px;border-radius:8px;max-height:260px;overflow:auto}
+.research-status{font-size:13px;color:var(--muted)}
 footer{max-width:1050px;margin:auto;padding:0 16px 30px;color:var(--muted);font-size:12px;text-align:center}
 @media(min-width:760px){.layout{grid-template-columns:1.05fr .95fr}.formgrid{grid-template-columns:1fr 1fr}.card{padding:21px}}
 </style>
@@ -132,11 +137,21 @@ footer{max-width:1050px;margin:auto;padding:0 16px 30px;color:var(--muted);font-
     <label>Competition<input id="competition" placeholder="League match" maxlength="80"></label>
     <label>Match date<input id="kickoff" type="datetime-local"></label>
   </div>
+
   <p><button id="analyse" class="primary" type="button">Generate statistical prediction</button></p>
   <p><button id="runAI" type="button">🤖 Run Gemini + Groq comparison</button></p>
+  <p><button id="deepResearch" type="button">🔎 Run Deep Research</button></p>
+
   <p id="analysisStatus" class="muted">Your account must be approved before using predictions.</p>
   <div id="prediction" class="results hidden"></div>
   <div id="geminiBox" class="ai-box hidden"></div>
+
+  <div id="researchBox" class="ai-box hidden">
+    <h3>🔎 Deep Match Research</h3>
+    <p id="researchStatus" class="research-status">Research has not started.</p>
+    <div id="researchResults"></div>
+  </div>
+
   <p id="dataNote" class="notice">Predictions are estimates, not guarantees.</p>
 </div>
 </div>
@@ -145,12 +160,14 @@ footer{max-width:1050px;margin:auto;padding:0 16px 30px;color:var(--muted);font-
 <section id="analysis" class="tabpage hidden">
 <div class="card">
   <h2>How our predictions work</h2>
-  <p>Browndy Predicts combines statistical football analysis with optional AI match insights.</p>
+  <p>Browndy Predicts combines statistical football analysis with optional AI match insights and on-demand match research.</p>
   <p>The statistical model estimates scoring rates from recent completed matches and uses a Poisson model to estimate correct scores and match markets.</p>
+  <p>Deep Research can request fixture information, statistics, events, lineups and injury information from API-Football when available.</p>
   <p>Gemini and Groq are configured as separate AI providers.</p>
   <p class="notice">AI analysis is OFF until you choose to run it. External AI requests may consume paid credits or incur charges. Check your provider accounts before using them.</p>
-  <p class="notice">Both AI providers are requested at the same time. If one is unavailable, the other can still return a prediction.</p>
-  <p class="notice">If AI services are unavailable, the statistical prediction remains available.</p>
+  <p class="notice">Deep Research uses API-Football requests. It is run only when you press its button and may consume your daily request allowance.</p>
+  <p class="notice">If research data is unavailable for a match, the app will report that rather than inventing information.</p>
+  <p class="notice">Predictions and research are estimates and information, not guarantees of match outcomes.</p>
 </div>
 </section>
 
@@ -192,6 +209,8 @@ $("year").textContent = new Date().getFullYear();
 
 const API = "/api/football";
 const PREDICTIONS_API = "/api/predictions";
+const RESEARCH_MATCH_API = "/api/research-match";
+const RESEARCH_API = "/api/research";
 const STORAGE = "browndy_predictions_v2";
 const FIXTURES_CACHE = "browndy_fixtures_cache_v1";
 const TOKEN_KEY = "browndy_customer_token";
@@ -199,6 +218,14 @@ const TOKEN_KEY = "browndy_customer_token";
 const AI_PROVIDERS = [
   {name:"Gemini",url:"/api/gemini"},
   {name:"Groq",url:"/api/groq"}
+];
+
+const RESEARCH_SECTIONS = [
+  {key:"fixture",label:"Fixture information"},
+  {key:"statistics",label:"Match statistics"},
+  {key:"events",label:"Match events"},
+  {key:"lineups",label:"Team lineups"},
+  {key:"injuries",label:"Injuries and suspensions"}
 ];
 
 let matches = [];
@@ -532,7 +559,6 @@ async function loadMatches(){
         : [];
 
     renderFixtureLists();
-
     saveFixturesCache();
 
     $("feedStatus").textContent=
@@ -605,6 +631,12 @@ function clearSelectedMatch(){
   selectedMatch=null;
 }
 
+function resetResearch(){
+  $("researchBox").classList.add("hidden");
+  $("researchStatus").textContent="Research has not started.";
+  $("researchResults").innerHTML="";
+}
+
 document.addEventListener("click",event=>{
   const card=event.target.closest("[data-match]");
   if(!card || !premiumAccessGranted) return;
@@ -622,6 +654,8 @@ document.addEventListener("click",event=>{
   $("kickoff").value=dateInputValue(match.utcDate || match.date);
 
   selectedMatch=isRecent ? null : match;
+
+  resetResearch();
 
   $("analysisStatus").textContent=isRecent
     ? "Completed match selected. It will not be saved as a new upcoming fixture."
@@ -646,7 +680,10 @@ document.addEventListener("click",event=>{
       sameTeamName($("home").value,teamName(selectedMatch.homeTeam)) &&
       sameTeamName($("away").value,teamName(selectedMatch.awayTeam));
 
-    if(!same) clearSelectedMatch();
+    if(!same){
+      clearSelectedMatch();
+      resetResearch();
+    }
   });
 });
 
@@ -928,6 +965,343 @@ async function callAI(provider,home,away,competition){
     ...extractPrediction(data)
   };
 }
+
+/* DEEP RESEARCH */
+
+function researchDateValue(){
+  const value=$("kickoff").value.trim();
+
+  if(!value) return "";
+
+  const date=new Date(value);
+
+  if(Number.isNaN(date.getTime())) return "";
+
+  return value.slice(0,10);
+}
+
+function researchObjectText(value){
+  try{
+    return JSON.stringify(value,null,2);
+  }catch{
+    return String(value);
+  }
+}
+
+function researchSectionSummary(section,items){
+  if(!Array.isArray(items) || !items.length){
+    return "No data was returned for this section.";
+  }
+
+  if(section==="fixture"){
+    return items.map(item=>{
+      const fixture=item.fixture || {};
+      const league=item.league || {};
+      const teams=item.teams || {};
+      const goals=item.goals || {};
+
+      return `
+        <p><strong>Competition:</strong> ${safe(league.name || "Unavailable")}</p>
+        <p><strong>Venue:</strong> ${safe(fixture.venue?.name || "Unavailable")}</p>
+        <p><strong>Status:</strong> ${safe(fixture.status?.long || "Unavailable")}</p>
+        <p><strong>Home score:</strong> ${safe(goals.home ?? "Not available")}</p>
+        <p><strong>Away score:</strong> ${safe(goals.away ?? "Not available")}</p>
+        <p><strong>Referee:</strong> ${safe(fixture.referee || "Unavailable")}</p>
+        <p><strong>Home team:</strong> ${safe(teams.home?.name || "Unavailable")}</p>
+        <p><strong>Away team:</strong> ${safe(teams.away?.name || "Unavailable")}</p>
+      `;
+    }).join("");
+  }
+
+  if(section==="statistics"){
+    return items.map(teamData=>{
+      const team=teamData.team?.name || "Team";
+      const stats=Array.isArray(teamData.statistics)
+        ? teamData.statistics
+        : [];
+
+      return `
+        <p><strong>${safe(team)}</strong></p>
+        ${stats.map(stat=>`
+          <p>${safe(stat.type)}: <strong>${safe(stat.value ?? "Unavailable")}</strong></p>
+        `).join("")}
+      `;
+    }).join("");
+  }
+
+  if(section==="events"){
+    return items.map(event=>{
+      return `
+        <p>
+          <strong>${safe(event.time?.elapsed ?? "?")}'</strong>
+          ${safe(event.team?.name || "Team unavailable")} —
+          ${safe(event.player?.name || "Player unavailable")}
+          ${event.type ? ` · ${safe(event.type)}` : ""}
+          ${event.detail ? ` · ${safe(event.detail)}` : ""}
+        </p>
+      `;
+    }).join("");
+  }
+
+  if(section==="lineups"){
+    return items.map(lineup=>{
+      const players=Array.isArray(lineup.startXI)
+        ? lineup.startXI
+        : [];
+
+      const substitutes=Array.isArray(lineup.substitutes)
+        ? lineup.substitutes
+        : [];
+
+      return `
+        <p><strong>${safe(lineup.team?.name || "Team")}</strong></p>
+        <p>Formation: ${safe(lineup.formation || "Unavailable")}</p>
+        <p>Coach: ${safe(lineup.coach?.name || "Unavailable")}</p>
+        <p>Starting players: ${
+          players.map(player=>safe(player.player?.name || player.name || "Unknown")).join(", ") ||
+          "Unavailable"
+        }</p>
+        <p>Substitutes: ${
+          substitutes.map(player=>safe(player.player?.name || player.name || "Unknown")).join(", ") ||
+          "Unavailable"
+        }</p>
+      `;
+    }).join("");
+  }
+
+  if(section==="injuries"){
+    return items.map(item=>`
+      <p>
+        <strong>${safe(item.player?.name || "Player unavailable")}</strong>
+        · ${safe(item.team?.name || "Team unavailable")}
+        · ${safe(item.player?.type || item.player?.reason || "Reason unavailable")}
+      </p>
+    `).join("");
+  }
+
+  return "";
+}
+
+function renderResearchSection(section,items){
+  const definition=RESEARCH_SECTIONS.find(item=>item.key===section);
+  const label=definition?.label || section;
+  const summary=researchSectionSummary(section,items);
+
+  return `
+    <div class="research-section">
+      <h3>${safe(label)}</h3>
+      ${summary}
+      <details>
+        <summary>View raw research data</summary>
+        <pre>${safe(researchObjectText(items))}</pre>
+      </details>
+    </div>
+  `;
+}
+
+function wait(milliseconds){
+  return new Promise(resolve=>setTimeout(resolve,milliseconds));
+}
+
+async function researchRequest(url){
+  const response=await fetch(url,{
+    method:"GET",
+    headers:{
+      ...authHeaders()
+    },
+    cache:"no-store"
+  });
+
+  const data=await response.json().catch(()=>({}));
+
+  if(!response.ok){
+    if(data.login_required){
+      throw new Error("Please log in again to use Deep Research.");
+    }
+
+    if(data.subscription_required){
+      throw new Error("An active Premium subscription is required for Deep Research.");
+    }
+
+    throw new Error(
+      typeof data.error==="string"
+        ? data.error
+        : JSON.stringify(data.error || `Research request failed (${response.status}).`)
+    );
+  }
+
+  if(data.success===false){
+    throw new Error(
+      typeof data.error==="string"
+        ? data.error
+        : "Research request failed."
+    );
+  }
+
+  return data;
+}
+
+async function runDeepResearch(){
+  if(!premiumAccessGranted){
+    $("analysisStatus").textContent=
+      "An active approved Premium subscription is required.";
+
+    return;
+  }
+
+  if(!getAuthToken()){
+    $("analysisStatus").textContent=
+      "Please log in again before using Deep Research.";
+
+    return;
+  }
+
+  if(!navigator.onLine){
+    $("analysisStatus").textContent=
+      "Deep Research requires an internet connection.";
+
+    return;
+  }
+
+  const home=$("home").value.trim();
+  const away=$("away").value.trim();
+  const date=researchDateValue();
+
+  if(!home || !away || !date){
+    $("analysisStatus").textContent=
+      "Select a match with a date, or enter both teams and the match date.";
+
+    return;
+  }
+
+  if(sameTeamName(home,away)){
+    $("analysisStatus").textContent=
+      "Choose two different teams.";
+
+    return;
+  }
+
+  if(!confirm(
+    "Deep Research will use API-Football requests. It can use up to 6 requests for this match. Continue?"
+  )){
+    return;
+  }
+
+  $("deepResearch").disabled=true;
+  $("researchBox").classList.remove("hidden");
+  $("researchResults").innerHTML="";
+  $("researchStatus").textContent=
+    "Finding the API-Football fixture...";
+
+  try{
+    const matchUrl=new URL(
+      RESEARCH_MATCH_API,
+      window.location.origin
+    );
+
+    matchUrl.searchParams.set("home",home);
+    matchUrl.searchParams.set("away",away);
+    matchUrl.searchParams.set("date",date);
+
+    const matchData=await researchRequest(matchUrl.toString());
+
+    if(!matchData.fixture){
+      throw new Error(
+        "The API did not return a fixture ID for this match."
+      );
+    }
+
+    const fixtureId=String(matchData.fixture);
+
+    $("researchStatus").textContent=
+      `Fixture found: ${matchData.home || home} vs ${matchData.away || away}. Collecting research...`;
+
+    const collected=[];
+    const unavailable=[];
+
+    for(let index=0;index<RESEARCH_SECTIONS.length;index++){
+      const section=RESEARCH_SECTIONS[index];
+
+      $("researchStatus").textContent=
+        `Researching ${section.label} (${index+1}/${RESEARCH_SECTIONS.length})...`;
+
+      const researchUrl=new URL(
+        RESEARCH_API,
+        window.location.origin
+      );
+
+      researchUrl.searchParams.set("fixture",fixtureId);
+      researchUrl.searchParams.set("section",section.key);
+
+      try{
+        const result=await researchRequest(researchUrl.toString());
+
+        const items=result.research?.[section.key] || [];
+
+        collected.push({
+          key:section.key,
+          items
+        });
+
+      }catch(error){
+        unavailable.push({
+          section:section.label,
+          message:error.message
+        });
+
+        collected.push({
+          key:section.key,
+          items:[],
+          error:error.message
+        });
+      }
+
+      if(index<RESEARCH_SECTIONS.length-1){
+        await wait(7000);
+      }
+    }
+
+    $("researchResults").innerHTML=collected.map(result=>{
+      if(result.error){
+        return `
+          <div class="research-section">
+            <h3>${safe(RESEARCH_SECTIONS.find(s=>s.key===result.key)?.label || result.key)}</h3>
+            <p class="error">${safe(result.error)}</p>
+          </div>
+        `;
+      }
+
+      return renderResearchSection(result.key,result.items);
+    }).join("");
+
+    const availableCount=collected.filter(
+      result=>!result.error && result.items.length>0
+    ).length;
+
+    $("researchStatus").textContent=
+      `Research completed for ${home} vs ${away}. ${availableCount} of 5 sections returned data. Fixture ID: ${fixtureId}.`;
+
+    if(unavailable.length){
+      $("analysisStatus").textContent=
+        `${unavailable.length} research section(s) could not be retrieved. Available data is displayed below.`;
+    }else{
+      $("analysisStatus").textContent=
+        "Deep Research completed successfully.";
+    }
+
+  }catch(error){
+    $("researchStatus").innerHTML=
+      `<span class="error">${safe(error.message || "Deep Research failed.")}</span>`;
+
+    $("analysisStatus").textContent=
+      error.message || "Deep Research failed.";
+
+  }finally{
+    $("deepResearch").disabled=false;
+  }
+}
+
+$("deepResearch").addEventListener("click",runDeepResearch);
 
 async function savePrediction(prediction,type="Statistical"){
   if(!premiumAccessGranted){
@@ -1443,6 +1817,7 @@ window.addEventListener("browndy:access-changed",event=>{
     appStarted=false;
     matches=[];
     recentMatches=[];
+    resetResearch();
   }
 });
 
